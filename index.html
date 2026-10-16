@@ -292,7 +292,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 14:56 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 15:11 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -322,8 +322,8 @@ li.al.info{border-left-color:var(--tide)}
       <p class="note">Paste the NOTAMs for every airport on this trip (from the FAA NOTAM Search, ForeFlight, or the flight packet). SherpaWare flags only closures and changes to published distances, for the planned departure and arrival times.</p>
       <label class="sub" for="ntDate">Flight date</label> <input id="ntDate" type="date">
       <textarea id="ntText" class="w" rows="6" placeholder="Paste NOTAMs here" aria-label="NOTAM text"></textarea>
-      <div class="btnrow"><button type="button" id="ntApply">Check NOTAMs</button><button type="button" id="ntClear">Clear</button></div>
-      <div id="ntOut"></div></section>
+      <div class="btnrow"><button type="button" id="ntFetch" hidden>Fetch NOTAMs</button><button type="button" id="ntApply">Check NOTAMs</button><button type="button" id="ntClear">Clear</button></div>
+      <p class="hint" id="ntMsg"></p><div id="ntOut"></div></section>
 
     <section class="panel pz" aria-labelledby="h-pap"><h2 id="h-pap">Paperwork and aircraft status</h2><div class="plk" id="pap"></div><div class="sc" id="stat"></div><p class="note" id="statn"></p></section>
 
@@ -1576,6 +1576,18 @@ function ntCheck(notams,windows,toIcao){
 if(typeof module!='undefined')module.exports={ntParse:ntParse,ntFlag:ntFlag,ntWindows:ntWindows,ntCheck:ntCheck,ntMs:ntMs,ntActive:ntActive};
 
 //NTUI-START
+// Relay (Cloudflare Worker, see relay/README.md). Empty = not set up: weather loads direct (blocked by browsers) and NOTAMs are pasted.
+var SW_RELAY='';
+function relayWx(k){return fetch(SW_RELAY+'/wx?ids='+k).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){return [(j.metar||{})[k]||'',(j.taf||{})[k]||'']})}
+function ntTripIds(){var o=[];if(state&&state.route)state.route.forEach(function(r){var c=ntToIcao(r.code);if(c&&o.indexOf(c)<0)o.push(c)});return o}
+function ntFetch(){
+ var b=$('ntFetch'),m=$('ntMsg'),ids=ntTripIds();if(!ids.length)return;
+ b.disabled=true;b.textContent='Fetching…';m.textContent='';
+ fetch(SW_RELAY+'/notam?ids='+ids.join(',')).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'failed');return j})})
+ .then(function(j){ST.notam={text:j.text||'',at:Date.now(),date:$('ntDate').value||ntToday(),auto:true};
+   m.textContent=(j.failed&&j.failed.length?'Could not fetch: '+j.failed.join(', ')+'. ':'')+'Fetched '+new Date().toISOString().slice(11,16)+'Z.';save();renderAll()})
+ .catch(function(e){m.textContent='Could not fetch NOTAMs ('+e.message+'). Paste them instead.'})
+ .then(function(){b.disabled=false;b.textContent='Fetch NOTAMs'})}
 // NOTAM panel (edit view) and alerts. Pasted text lives in ST.notam = {text, at, date}. Loaded before app.js; uses app globals at call time.
 function ntToIcao(code){
  code=String(code||'').toUpperCase().trim();if(!code)return null;
@@ -1603,7 +1615,7 @@ function notamAlerts(){
 function ntRender(){
  var el=$('ntOut');if(!el)return;
  var s=ST.notam||{},st=ntState();
- var di=$('ntDate');if(di&&document.activeElement!==di)di.value=st.date;
+ var fb=$('ntFetch');if(fb)fb.hidden=!SW_RELAY;var di=$('ntDate');if(di&&document.activeElement!==di)di.value=st.date;
  var ta=$('ntText');if(ta&&document.activeElement!==ta)ta.value=s.text||'';
  if(!state){el.innerHTML='';return}
  if(!st.has){el.innerHTML='<p class="hint">Not checked yet.</p>';return}
@@ -1616,7 +1628,8 @@ function ntRender(){
  el.innerHTML=h}
 document.addEventListener('click',function(e){
  var t=e.target;if(!t.closest)return;
- if(t.closest('#ntApply')){ST.notam={text:($('ntText').value||'').trim(),at:Date.now(),date:$('ntDate').value||ntToday()};save();renderAll()}
+ if(t.closest('#ntFetch')){ntFetch()}
+ else if(t.closest('#ntApply')){ST.notam={text:($('ntText').value||'').trim(),at:Date.now(),date:$('ntDate').value||ntToday()};save();renderAll()}
  else if(t.closest('#ntClear')){ST.notam=null;$('ntText').value='';save();renderAll()}});
 document.addEventListener('change',function(e){if(e.target&&e.target.id==='ntDate'&&ST.notam&&ST.notam.text){ST.notam.date=e.target.value||ntToday();save();renderAll()}});
 //NTUI-END
@@ -1700,13 +1713,13 @@ document.addEventListener('click',function(e){var b=e.target.closest&&e.target.c
  var sc=b.getAttribute('data-wx'),L=curL(),k=L&&(sc==='dep'?L.depIcao:L.arrIcao);if(!k)return;
  if(WX&&WX.metar&&WX.metar[k]){var o0=scopeObj(sc);o0.metar=WX.metar[k];o0.taf=(WX.taf||{})[k]||'';o0.auto=true;$(PFX[sc]+'metar').value=o0.metar;applyMetar(sc,o0.metar,true);o0.auto=true;$(PFX[sc]+'taf').textContent=o0.taf;$(PFX[sc]+'tafBox').hidden=!o0.taf;showMsg(sc,'Latest METAR for '+k+' ('+metarZ(o0.metar)+') loaded from SherpaWare\'s hourly weather.',false);save();renderAll();return}
  b.disabled=true;b.textContent='Loading…';var bs='https://aviationweather.gov/api/data/';
- Promise.all([fetch(bs+'metar?ids='+k+'&format=raw&hours=2').then(function(r){if(!r.ok)throw 0;return r.text()}),
-  fetch(bs+'taf?ids='+k+'&format=raw').then(function(r){return r.ok?r.text():''}).catch(function(){return ''})])
+ (SW_RELAY?relayWx(k):Promise.all([fetch(bs+'metar?ids='+k+'&format=raw&hours=2').then(function(r){if(!r.ok)throw 0;return r.text()}),
+  fetch(bs+'taf?ids='+k+'&format=raw').then(function(r){return r.ok?r.text():''}).catch(function(){return ''})]))
  .then(function(res){var mt=(res[0]||'').trim().split('\n')[0];
   if(!mt){showMsg(sc,'No current METAR found for '+k+'. Paste one or enter conditions by hand.',true);return}
   var o=scopeObj(sc);o.metar=mt;$(PFX[sc]+'metar').value=mt;applyMetar(sc,mt,true);o.taf=(res[1]||'').trim();
   $(PFX[sc]+'taf').textContent=o.taf;$(PFX[sc]+'tafBox').hidden=!o.taf;
-  showMsg(sc,'Loaded from aviationweather.gov at '+new Date().toISOString().slice(11,16)+'Z.',false);save();renderAll()})
+  showMsg(sc,'Loaded from aviationweather.gov'+(SW_RELAY?' via SherpaWare relay':'')+' at '+new Date().toISOString().slice(11,16)+'Z.',false);save();renderAll()})
  .catch(function(){showMsg(sc,'Live weather could not load here. Paste the METAR above, or enter OAT, altimeter and wind by hand.',true)})
  .then(function(){b.disabled=false;b.textContent='Load weather'})});
 
