@@ -130,7 +130,11 @@ details summary{cursor:pointer;font:600 14px var(--f-label);letter-spacing:.08em
 .pz .xfer,.pz .warn{color:var(--caution)} .pz .xfer{font-weight:600}
 .pz .ok{color:var(--good)} .pz .bad{color:var(--bad);font-weight:600}
 .pz .note,.pz .sub{font-size:12px;color:var(--muted);margin:6px 0 0}
-.pz tr.chg td{background:var(--chg)}
+/* Only the field that changed is shaded (not the whole row). Exceeded limits: red text and a red field. Fuel that cannot reach max: amber field. */
+.pz td.chgc{background:var(--chg)}
+.pz td.exc{color:var(--bad);font-weight:700;background:var(--bad-soft)}
+.pz td.lim{background:var(--caution-soft)}
+.pz td.lim .was{color:var(--caution)}
 .was{color:var(--muted);font-size:11px;font-weight:400}
 .pz svg{width:100%;height:auto;display:block}
 .pz svg text{fill:var(--ink);font:11px var(--f-body)}
@@ -217,6 +221,20 @@ li.al.info{border-left-color:var(--tide)}
 .cf select,.cf input{font:600 16px var(--f-num);padding:6px 6px;min-width:0;width:100%;background:var(--card)}
 .k .cf input{font-size:clamp(20px,7vw,28px);border:0;padding:0;background:transparent;font-weight:600}
 .sub-h{font:700 13px var(--f-label);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--hair);padding-top:6px}
+/* Cockpit: one value per line, large enough to read at arm's length. Label and detail on the left, the value on the right. */
+.ph{overflow-y:auto}
+.ph .kv,.ph .kv.one{grid-template-columns:minmax(0,1fr);gap:6px}
+.ph .k{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;padding:6px 10px}
+.ph .k .l{grid-column:1;font-size:15px;letter-spacing:.07em}
+.ph .k .s{grid-column:1;font-size:13px}
+.ph .k .n,.ph .k .n.sm{grid-column:2;grid-row:1 / span 2;text-align:right;font-size:clamp(32px,6.4vh,54px)}
+.ph .k .n.err{font-size:14px;max-width:11em}
+.ph .k .cf{display:contents}
+.ph .k .cf input{grid-column:2;grid-row:1 / span 2;text-align:right;font-size:clamp(32px,6.4vh,54px);width:5.5em}
+.ph .k button.clr{grid-column:1 / -1;justify-self:start}
+.ph .cf select{font-size:20px;padding:8px 6px}
+.ph .legline{font-size:16px}
+.ph .cmt{font:13px/1.4 var(--f-body);color:var(--muted)}
 @media (max-width:300px){
   .cp-bar{padding:6px 8px;gap:6px}
   .cp-bar .id{font-size:16px}
@@ -246,7 +264,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 12:13 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 12:44 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -744,9 +762,10 @@ function calc(st){
   if(lf<S.res-0.5)fl.push('Below reserve');
   if(isNaN(bm))fl.push('Check times');
   var buf=(S.buf==null?1:+S.buf),mF=Math.min(cgT-fwdLim(tow),cgL-fwdLim(lw)),mA=Math.min(AFT-cgT,AFT-cgL),adv='',wt=(mF<=mA?(cgT-fwdLim(tow)<=cgL-fwdLim(lw)?tow:lw):(AFT-cgT<=AFT-cgL?tow:lw));
-  if(mF<buf){var dm=(buf-mF)*wt;adv='Shift aft: about '+Math.round(dm)+' lb-in, or '+Math.round(dm/60)+' lb moved 60 in aft, to restore a '+buf+' in margin'}
-  else if(mA<buf){var dm2=(buf-mA)*wt;adv='Shift forward: about '+Math.round(dm2)+' lb-in, or '+Math.round(dm2/60)+' lb moved 60 in forward, to restore a '+buf+' in margin'}
-  legs.push({i:i,from:R[i].code,to:R[i+1].code,dep:R[i].dep,arr:R[i+1].arr,nm:R[i+1].nm,block:block,hob:hob,burn:burn,xb:xb,manual:manual,mF:mF,mA:mA,mU:mU,adv:adv,need:need,cw:cw,zfw:zfw,maxRamp:maxRamp,ramp:ramp,up:up,minUp:minUp,skip:skip,backup:backup,limited:(!skip&&!manual&&ramp<S.cap-0.5&&maxRamp<S.cap-0.5),limitBy:limBy,toCap:toCap,toBy:toBy,ldCap:ldCap,ldBy:ldBy,apgCut:Math.max(0,STR-maxRamp),tof:tof,tow:tow,cgT:cgT,fwdT:fwdLim(tow),lf:lf,lw:lw,cgL:cgL,fwdL:fwdLim(lw),cgU:cgU,cgUL:cgUL,comp:comp,flags:fl,nOn:on.length});
+  var dmv=0;// signed cargo moment change that restores the margin, lb-in (+ = shift aft, - = shift forward)
+  if(mF<buf){var dm=(buf-mF)*wt;dmv=dm;adv='Shift aft: about '+Math.round(dm)+' lb-in, or '+Math.round(dm/60)+' lb moved 60 in aft, to restore a '+buf+' in margin'}
+  else if(mA<buf){var dm2=(buf-mA)*wt;dmv=-dm2;adv='Shift forward: about '+Math.round(dm2)+' lb-in, or '+Math.round(dm2/60)+' lb moved 60 in forward, to restore a '+buf+' in margin'}
+  legs.push({i:i,from:R[i].code,to:R[i+1].code,dep:R[i].dep,arr:R[i+1].arr,nm:R[i+1].nm,block:block,hob:hob,burn:burn,xb:xb,manual:manual,mF:mF,mA:mA,mU:mU,adv:adv,dm:dmv,cm:cm,need:need,cw:cw,zfw:zfw,maxRamp:maxRamp,ramp:ramp,up:up,minUp:minUp,skip:skip,backup:backup,limited:(!skip&&!manual&&ramp<S.cap-0.5&&maxRamp<S.cap-0.5),limitBy:limBy,toCap:toCap,toBy:toBy,ldCap:ldCap,ldBy:ldBy,apgCut:Math.max(0,STR-maxRamp),tof:tof,tow:tow,cgT:cgT,fwdT:fwdLim(tow),lf:lf,lw:lw,cgL:cgL,fwdL:fwdLim(lw),cgU:cgU,cgUL:cgUL,comp:comp,flags:fl,nOn:on.length});
   arrFuel=lf;
  }
  return {legs:legs,cargo:base,tot:tot,eqW:eqW,eqM:eqM};
@@ -1228,6 +1247,7 @@ function planRender(M){
   var o={burn:Math.abs(g.burn-b.burn)>1,fuel:g.skip!==b.skip||Math.abs(g.up-b.up)>1||g.manual!==b.manual,ramp:Math.abs(g.ramp-b.ramp)>1,time:g.dep!==b.dep||g.arr!==b.arr,tow:Math.abs(g.tow-b.tow)>1,cg:Math.abs(g.cgT-b.cgT)>0.02||Math.abs(g.cgL-b.cgL)>0.02,flags:g.flags.join()!==b.flags.join()};
   o.any=o.burn||o.fuel||o.ramp||o.time||o.tow||o.cg||o.flags;return o}
  function was(txt){return ' <span class="was">was '+txt+'</span>'}
+ function tdc(cls,chg,exc,lim){var a=(cls||'')+(exc?' exc':chg?' chgc':lim?' lim':'');a=a.trim();return a?'<td class="'+a+'">':'<td>'}
  var C=L.map(function(g){return chg(g,blOf(g))}),anyChg=C.some(function(c){return c.any});
  var prop=!!(state.itin&&state.itin.status==='proposed');
  $('propBar').hidden=!prop;$('itinPill').hidden=!prop;$('propSrc').textContent=prop?state.itin.src:'';
@@ -1236,9 +1256,10 @@ function planRender(M){
  var h='<table><tr><th>Leg</th><th>Route</th><th>Dep</th><th>Arr</th><th class="n">Block</th><th class="n">Hobbs hr</th><th class="n">NM</th><th class="n">Fuel burn lb</th><th class="n">Fuel on</th><th class="n">Uplift gal</th><th class="n">Ramp fuel lb</th><th class="n">Land fuel lb</th><th class="n">Over reserve lb</th></tr>',tb=0,tn=0;
  L.forEach(function(g,k){var c=C[k],b=blOf(g);tb+=g.block;tn+=(+g.nm||0);
   var gal=g.i==0?g.ramp/dens:g.up/dens;
-  h+='<tr'+(c.any?' class="chg"':'')+'><td>'+(g.i+1)+(c.any?'*':'')+'</td><td>'+esc(g.from)+' → '+esc(g.to)+(R[g.i].flt?' <span class="was">'+esc(R[g.i].flt)+'</span>':'')+(c.isNew?' <span class="was">new leg</span>':'')+'</td><td>'+esc(g.dep)+(c.time&&b&&b.dep!==g.dep?was(esc(b.dep)):'')+'</td><td>'+esc(g.arr)+(c.time&&b&&b.arr!==g.arr?was(esc(b.arr)):'')+'</td><td class="n">'+hm(g.block)+'</td><td class="n">'+g.hob.toFixed(1)+'</td><td class="n">'+(g.nm||'')+'</td><td class="n">'+f0(g.burn)+(g.xb?' <span class="warn">(incl. '+f0(g.xb)+' extra)</span>':'')+(c.burn&&b?was(f0(b.burn)):'')+'</td><td class="n">'+fuelHtml(g)+(c.fuel&&b?was(fuelPlain(b)):'')+'</td><td class="n">'+(gal>0.5?f0(gal):'')+'</td><td class="n">'+f0(g.ramp)+(c.ramp&&b?was(f0(b.ramp)):'')+'</td><td class="n">'+f0(g.lf)+'</td><td class="n">'+f0(g.lf-S.res)+'</td></tr>'});
+  var xf=function(re){return g.flags.some(function(f){return re.test(f)})},lm=g.limited&&!g.manual,bch=!!b;
+  h+='<tr>'+tdc('',c.isNew)+(g.i+1)+'</td>'+tdc('',c.isNew)+esc(g.from)+' → '+esc(g.to)+(R[g.i].flt?' <span class="was">'+esc(R[g.i].flt)+'</span>':'')+(c.isNew?' <span class="was">new leg</span>':'')+'</td>'+tdc('',bch&&c.time&&b.dep!==g.dep)+esc(g.dep)+(c.time&&b&&b.dep!==g.dep?was(esc(b.dep)):'')+'</td>'+tdc('',bch&&c.time&&b.arr!==g.arr)+esc(g.arr)+(c.time&&b&&b.arr!==g.arr?was(esc(b.arr)):'')+'</td><td class="n">'+hm(g.block)+'</td><td class="n">'+g.hob.toFixed(1)+'</td><td class="n">'+(g.nm||'')+'</td>'+tdc('n',bch&&c.burn)+f0(g.burn)+(g.xb?' <span class="warn">(incl. '+f0(g.xb)+' extra)</span>':'')+(c.burn&&b?was(f0(b.burn)):'')+'</td>'+tdc('n',bch&&c.fuel)+fuelHtml(g)+(c.fuel&&b?was(fuelPlain(b)):'')+'</td><td class="n">'+(gal>0.5?f0(gal):'')+'</td>'+tdc('n',bch&&c.ramp,xf(/Over fuel capacity|Fuel short/),lm)+f0(g.ramp)+(c.ramp&&b?was(f0(b.ramp)):'')+(lm?' <span class="was">limited by '+esc(limTxt(g.limitBy))+'</span>':'')+'</td>'+tdc('n',false,xf(/Below reserve|Fuel short/))+f0(g.lf)+'</td>'+tdc('n',false,xf(/Below reserve/))+f0(g.lf-S.res)+'</td></tr>'});
  h+='<tr><th colspan="4">Total</th><th class="n">'+hm(tb)+'</th><th class="n">'+L.reduce(function(a,g){return a+g.hob},0).toFixed(1)+'</th><th class="n">'+tn+'</th><th class="n">'+f0(L.reduce(function(a,g){return a+g.burn},0))+'</th><th colspan="5"></th></tr></table>';
- h+='<p class="note">Preferred fuel stops: '+R.map(function(x,i){return pref(x)?x.code+' (stop '+i+')':''}).filter(Boolean).join(', ')+'. Gallons at '+dens+' lb/gal (leg 1: total ramp fuel). Uplift is held within MTOW, max ramp, MLW and, once conditions are entered, the APG takeoff and landing limits.'+(anyChg?' Shaded rows marked * differ from the baseline plan; grey text shows the baseline value.':'')+'</p>';
+ h+='<p class="note">Preferred fuel stops: '+R.map(function(x,i){return pref(x)?x.code+' (stop '+i+')':''}).filter(Boolean).join(', ')+'. Gallons at '+dens+' lb/gal (leg 1: total ramp fuel). Uplift is held within MTOW, max ramp, MLW and, once conditions are entered, the APG takeoff and landing limits.'+(anyChg?' Shaded cells differ from the baseline plan; grey text shows the baseline value. Red cells exceed a limit. An amber ramp fuel cell could not reach full tanks (it says what limited it).':'')+'</p>';
  $('itin').innerHTML=h;
  // alerts
  var A=[];
@@ -1278,23 +1299,23 @@ function planRender(M){
   $('stat').innerHTML=sh+'</table>';
   $('statn').textContent='Sheet dated '+(stt.asOf||'unknown')+'. Hours use planned hobbs time ('+plH.toFixed(1)+' hr) and '+L.length+' landings. Flights since the sheet date are not counted. Flags (company policy): hours or cycles within 10 of the limit; dates within 30 days (red inside 10). Cycle limits are only checked if the sheet shows one.';
  }else{$('stat').innerHTML='';$('statn').textContent='No aircraft status sheet loaded. Paste it with the flight emails.'}
- $('alegend').textContent=anyChg?'Shaded rows marked * have changed from the baseline plan.':'';
+ $('alegend').textContent=anyChg?'Shaded cells have changed from the baseline plan. Red cells exceed a limit.':'';
  // offload schedule
- var o='<table><tr><th>Offload at</th><th>House AWB</th><th>Cargo for</th><th class="n">kg</th><th class="n">lb</th><th>Action</th><th>Loaded at</th><th>Zone (arm, in)</th><th>Note</th></tr>';
+ var o='<table><tr><th>Offload at</th><th>House AWB</th><th>Cargo for</th><th class="n">kg</th><th class="n">lb</th><th>Action</th><th>Loaded at</th><th>Zone (arm, in)</th><th class="n">Center (in)</th><th>Note</th></tr>';
  var cs=r.cargo.slice().sort(function(a,b){return a.off-b.off||b.arm-a.arm}),bc=base.cargo;
  cs.forEach(function(c){
   var st=R[c.off]?R[c.off].code:'?',tr=c.dest&&c.dest.toUpperCase()!==st,b0=bc[c.i];
-  var cc=!b0||(+b0.kg||0)!==(+c.kg||0)||b0.on!=c.on||b0.off!=c.off||b0.dest!==c.dest||String(b0.parm)!==String(c.parm);
-  var zone=c.a0==null?'at arm '+Math.round(c.arm):Math.round(c.a0)+' to '+Math.round(c.a1);
-  o+='<tr'+(cc?' class="chg"':'')+'><td>'+esc(st)+(cc?'*':'')+'</td><td>'+esc(c.awb)+'</td><td>'+esc(c.dest)+'</td><td class="n">'+f0(c.kg)+(b0&&(+b0.kg||0)!==(+c.kg||0)?was(f0(b0.kg)):'')+'</td><td class="n">'+f0(c.lb)+'</td><td>'+(tr?'<span class="xfer">Transfer to onward carrier</span>':'<span class="tag">Final</span>')+'</td><td>'+esc(R[c.on]?R[c.on].code:'?')+'</td><td>'+zone+'</td><td>'+esc(c.note)+(!b0?' <span class="was">new line</span>':'')+'</td></tr>'});
- if(!cs.length)o+='<tr><td colspan="9" class="sub">No cargo yet. Paste the airway bills or add lines with CHANGE ON THE FLY.</td></tr>';
- o+='<tr><th colspan="3">All cargo</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+(+c.kg||0)},0))+'</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+c.lb},0))+'</th><th colspan="4"></th></tr></table>';
+  var d={kg:!!b0&&(+b0.kg||0)!==(+c.kg||0),on:!!b0&&b0.on!=c.on,off:!!b0&&b0.off!=c.off,dest:!!b0&&b0.dest!==c.dest,parm:!!b0&&String(b0.parm)!==String(c.parm)};
+  var zone=c.a0==null?'at arm '+Math.round(c.arm):Math.round(c.a0)+' to '+Math.round(c.a1),ctr=Math.round(c.arm/10)*10;
+  o+='<tr>'+tdc('',d.off)+esc(st)+'</td>'+tdc('',!b0)+esc(c.awb)+'</td>'+tdc('',d.dest)+esc(c.dest)+'</td>'+tdc('n',d.kg)+f0(c.kg)+(d.kg?was(f0(b0.kg)):'')+'</td>'+tdc('n',d.kg)+f0(c.lb)+'</td><td>'+(tr?'<span class="xfer">Transfer to onward carrier</span>':'<span class="tag">Final</span>')+'</td>'+tdc('',d.on)+esc(R[c.on]?R[c.on].code:'?')+'</td>'+tdc('',d.parm)+zone+'</td>'+tdc('n',d.parm)+ctr+'</td><td>'+esc(c.note)+(!b0?' <span class="was">new line</span>':'')+'</td></tr>'});
+ if(!cs.length)o+='<tr><td colspan="10" class="sub">No cargo yet. Paste the airway bills or add lines with CHANGE ON THE FLY.</td></tr>';
+ o+='<tr><th colspan="3">All cargo</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+(+c.kg||0)},0))+'</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+c.lb},0))+'</th><th colspan="5"></th></tr></table>';
  $('off').innerHTML=o;
  $('offn').textContent='Load order: cargo for the latest stop goes in first, forward-most; cargo for the earliest stop goes in last, aft-most (first loaded, last off). Zones spread cargo that is aboard at departure evenly over arm '+S.lo+' to '+S.hi+'. Cargo picked up en route goes into the space freed at that stop unless you give it an arm.'+(bc.length>state.cargo.length?' Lines removed since the baseline: '+(bc.length-state.cargo.length)+'.':'');
  // leg checks
  var k='<table><tr><th>Leg</th><th class="n">Cargo lb</th><th class="n">T/O wt</th><th class="n">T/O CG</th><th class="n">%MAC</th><th class="n">Fwd limit</th><th class="n">Land wt</th><th class="n">Land CG</th><th class="n">Fwd margin</th><th class="n">Gear-up CG</th><th class="n">En route margin</th><th>Status</th><th>CG action</th></tr>';
- L.forEach(function(g,i){var c=C[i],b=blOf(g),rc=!b||c.tow||c.cg||c.flags;
-  k+='<tr'+(rc?' class="chg"':'')+'><td>'+(g.i+1)+' '+esc(g.from)+'→'+esc(g.to)+(rc?'*':'')+'</td><td class="n">'+f0(g.cw)+'</td><td class="n">'+f0(g.tow)+(b&&c.tow?was(f0(b.tow)):'')+'</td><td class="n">'+g.cgT.toFixed(2)+(b&&c.cg?was(b.cgT.toFixed(2)):'')+'</td><td class="n">'+pmac(g.cgT).toFixed(1)+'</td><td class="n">'+g.fwdT.toFixed(2)+'</td><td class="n">'+f0(g.lw)+'</td><td class="n">'+g.cgL.toFixed(2)+'</td><td class="n">'+g.mF.toFixed(1)+'</td><td class="n">'+g.cgU.toFixed(2)+'</td><td class="n">'+g.mU.toFixed(1)+'</td><td>'+(g.flags.length?'<span class="bad">'+g.flags.join(', ')+'</span>':'<span class="ok">OK</span>')+'</td><td>'+(g.adv?'<span class="warn">'+esc(g.adv)+'</span>':'<span class="ok">None needed</span>')+'</td></tr>'});
+ L.forEach(function(g,i){var c=C[i],b=blOf(g),xf=function(re){return g.flags.some(function(f){return re.test(f)})};
+  k+='<tr>'+tdc('',!b)+(g.i+1)+' '+esc(g.from)+'→'+esc(g.to)+'</td>'+tdc('n',false,xf(/Over design payload|Over compartment/))+f0(g.cw)+'</td>'+tdc('n',!!b&&c.tow,xf(/Over MTOW|Over ramp wt|Over T\/O cap|Over APG T\/O/))+f0(g.tow)+(b&&c.tow?was(f0(b.tow)):'')+'</td>'+tdc('n',!!b&&c.cg,xf(/CG out T\/O/))+g.cgT.toFixed(2)+(b&&c.cg?was(b.cgT.toFixed(2)):'')+'</td><td class="n">'+pmac(g.cgT).toFixed(1)+'</td><td class="n">'+g.fwdT.toFixed(2)+'</td>'+tdc('n',false,xf(/Over MLW|Over landing cap|Over APG landing/))+f0(g.lw)+'</td>'+tdc('n',false,xf(/CG out landing/))+g.cgL.toFixed(2)+'</td>'+tdc('n',false,xf(/CG out (T\/O|landing)/))+g.mF.toFixed(1)+'</td>'+tdc('n',false,xf(/CG out en route/))+g.cgU.toFixed(2)+'</td>'+tdc('n',false,xf(/CG out en route/))+g.mU.toFixed(1)+'</td>'+tdc('',!!b&&c.flags)+(g.flags.length?'<span class="bad">'+g.flags.join(', ')+'</span>':'<span class="ok">OK</span>')+'</td><td>'+(g.adv?'<span class="warn">'+esc(g.adv)+'</span>':'<span class="ok">None needed</span>')+'</td></tr>'});
  $('chk').innerHTML=k+'</table>';
  $('chkn').textContent='Official W&B form values: datum FS 200 (arm = FS − 200), fuel arm '+S.fuelArm+' in, gear retraction +'+f0(S.gear)+' lb-in aft. CG in inches aft of datum. Takeoff and landing limits: aft '+AFT+', forward by weight (29.85 to 34.41). Gear-up CG is checked against the en route limits (forward 27.89 to 29.45, aft '+AFT_ENR+'). Cargo stays where it was loaded when other cargo comes off. Burn '+S.burn+' lb/hr on hobbs time (block minus '+S.gnd0+' hr on leg 1, '+S.gnd+' hr after). Crew '+S.crew+' lb at '+S.crewArm+' in, standard equipment '+f0(r.eqW)+' lb, taxi '+S.taxi+' lb, reserve '+S.res+' lb'+((+S.cushion)?' plus '+S.cushion+' lb cushion':'')+'. The W&B always uses the plan; a typed takeoff or landing weight changes only the TOLD figures.';
  chart(L);
@@ -1410,7 +1431,7 @@ function toldRender(M){
 }
 
 // ---------- Cockpit column ----------
-var PH=['Dispatch','Power settings','Takeoff','Climb · maneuvering','Landing speeds'],cpIdx=0;
+var PH=['Dispatch','Power settings','Takeoff','Climb · maneuvering','Landing speeds','Cargo · fuel'],cpIdx=0;
 function K(label,val,sub,cls){
  var v=val==null?'<div class="n err">—</div>':(typeof val==='object'?(val.error?'<div class="n err">'+esc(val.error)+'</div>':'<div class="n">'+val.value+'</div>'):'<div class="n'+(String(val).length>6?' sm':'')+'">'+esc(val)+'</div>');
  return '<div class="k '+(cls||'')+'"><div class="l">'+label+'</div>'+v+(sub?'<div class="s">'+sub+'</div>':'')+'</div>'}
@@ -1429,7 +1450,7 @@ function renderCockpit(){
  var shown=al.slice(0,4),more=al.length-shown.length;
  var alH=al.length?'<ul class="cal">'+shown.map(function(a){return '<li class="'+a.l+'">'+esc((function(x){return x.charAt(0).toUpperCase()+x.slice(1)})(a.s||a.t.replace(/^Leg \d+ \([^)]*\): /,'')))+'</li>'}).join('')+(more>0?'<li class="info">'+more+' more in Edit</li>':'')+'</ul>':'';
  var mt=L.mtow,tow=L.tow,over=mt!=null&&tow>mt+0.5,lw=L.ldw,lover=L.mlw!=null&&lw>L.mlw+0.5,cm=dep.comp,hw=cm?cm.used:null;
- var vs=TOLD.takeoffSpeeds(tow,+(c.flaps||15)),ls=TOLD.landingSpeeds(lw);
+ var vs=TOLD.takeoffSpeeds(tow,+(c.flaps||15)),ls=TOLD.landingSpeeds(lw),gfl=+(c.flaps||15),gv=TOLD.takeoffSpeeds(lw,gfl);
  var offHere=state.cargo.reduce(function(s,x){return s+(+x.off===L.i+1?(+x.kg||0)*KG:0)},0);
  var cgBad=g.flags.some(function(f){return /^CG out/.test(f)});
  var fuelTxt=g.i===0?'Fuel to '+fmt(g.ramp)+' ('+fmt(g.ramp/(+state.set.dens||6.5))+' gal)':(g.skip?'No fuel stop':'Uplift '+fmt(g.up)+' lb ('+fmt(g.up/(+state.set.dens||6.5))+' gal)');
@@ -1450,7 +1471,7 @@ function renderCockpit(){
    K('Max landing wt',L.mlw==null?'—':fmt(L.mlw),esc(g.to+' · '+(arr.why||'')))+ldwTile()+
    K('CG T/O',g.cgT.toFixed(1),pmac(g.cgT).toFixed(1)+'% MAC · fwd margin '+g.mF.toFixed(1)+' in',cgBad?'bad':'')+
    K('CG LDG',g.cgL.toFixed(1),cgBad&&g.adv?esc(advShort(g.adv)):'Gear-up en route margin '+g.mU.toFixed(1)+' in',cgBad?'bad':'')+
-   K('Ramp fuel',fmt(g.ramp),fuelTxt+' · land '+fmt(g.lf))+
+   K('Ramp fuel',fmt(g.ramp),fuelTxt+' · land '+fmt(g.lf)+(g.limited&&!g.manual?' · <b>LIMITED by '+esc(limTxt(g.limitBy))+'</b>':''),g.limited&&!g.manual?'warn':'')+
    K('Cargo aboard',fmt(g.cw),'lb · off at '+esc(g.to)+': '+fmt(offHere)+' lb')+
    (okT?K('OAT',dep.oat+'°C','PA '+fmt(dep.pa)+' ft'):'')+'</div>'+
   '<div class="foot">Planning aid. W&B from the plan'+(L.towOv||L.ldwOv?'; MANUAL weights change only the TOLD figures':'')+'. AFM, QRH, APG and the official W&B form govern.'+(L.retOver?' * An immediate return would land over max landing weight.':'')+'</div>');
@@ -1475,9 +1496,17 @@ function renderCockpit(){
    '<div class="foot">Speeds at takeoff weight '+fmt(tow)+' lb'+(vs.card?' · speed card GW '+fmt(vs.card):'')+', rounded up. Climb speed: QRH P-1. Maneuvering: BTA V-speed cards.</div>');
  }else{h.push(head(1)+noT);h.push(head(2)+noT);h.push(head(3)+noT)}
  h.push(head(4)+'<div class="legline">Landing at <b>'+esc(g.to)+'</b>'+(arr.ok?' · '+esc(arr.icao)+' · RWY '+esc(arr.lr):'')+'</div>'+
-  '<div class="kv">'+ldwTile()+K('VREF 35°',ls.f35,'','hl')+K('VREF 15°',ls.f15,'')+K('VREF 0°',ls.f0,'')+K('Maneuvering',ls.man0,'Flaps 0°')+
+  '<div class="kv">'+ldwTile()+K('VREF 35°',ls.f35,'','hl')+K('VREF 15°',ls.f15,'')+K('VREF 0°',ls.f0,'')+K('V2 go-around',gv.V2,'Flaps '+gfl+'° · at landing wt','hl')+K('Maneuvering',ls.man0,'Flaps 0°')+
   K('Max landing wt',L.mlw==null?'—':fmt(L.mlw),esc(arr.why||''))+'</div>'+
-  '<div class="foot">At landing weight '+fmt(lw)+' lb'+(L.ldwOv?' (MANUAL)':' (plan)')+(ls.card?' · speed card GW '+fmt(ls.card):'')+', rounded up. VREF: QRH P-1. Maneuvering: BTA V-speed cards. Max landing weight uses this leg\'s arrival conditions.</div>');
+  '<div class="foot">At landing weight '+fmt(lw)+' lb'+(L.ldwOv?' (MANUAL)':' (plan)')+(ls.card?' · speed card GW '+fmt(ls.card):'')+', rounded up. VREF: QRH P-1. Maneuvering: BTA V-speed cards. V2 go-around: QRH takeoff V2 at the landing weight, flaps '+gfl+'°; confirm against the AFM. Max landing weight uses this leg\'s arrival conditions.</div>');
+ // 6 Cargo and fuel at the departure station, and cargo coming off on arrival (pounds only)
+ var cgo=state.cargo||[],lbOf=function(a){return a.reduce(function(s2,x){return s2+(+x.kg||0)*KG},0)},offH=cgo.filter(function(x){return +x.off===L.i&&L.i>0}),onH=cgo.filter(function(x){return +x.on===L.i}),offA=cgo.filter(function(x){return +x.off===L.i+1});
+ var cnt=function(a){return a.length?a.length+' airway bill'+(a.length>1?'s':''):'None'},lst=function(a){return a.length?a.map(function(x){return esc(x.awb||'(no AWB)')+' → '+esc(x.dest||'?')+' '+fmt((+x.kg||0)*KG)+' lb'}).join(' · '):'none'};
+ var fuelT=g.i===0?K('Fuel to (ramp)',fmt(g.ramp),fmt(g.ramp/(+state.set.dens||6.5))+' gal at '+esc(g.from)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''):(g.skip?K('Fuel uplift','NONE','Arrive '+esc(g.from)+' with '+fmt(g.ramp)+' lb, no uplift needed'):K('Fuel uplift',fmt(g.up),fmt(g.up/(+state.set.dens||6.5))+' gal at '+esc(g.from)+' · ramp '+fmt(g.ramp)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''));
+ var shT='';if(g.cw>0&&Math.abs(g.dm||0)>0.5){var cur=g.cm/g.cw,tgt=(g.cm+g.dm)/g.cw;shT=K('Move cargo center to',Math.round(tgt/10)*10,'arm in · now '+Math.round(cur/10)*10+' · '+(g.dm>0?'shift aft':'shift forward')+' to restore the CG margin','warn')}
+ h.push(head(5)+'<div class="legline">At <b>'+esc(g.from)+'</b> · leg '+(L.i+1)+' of '+n+'</div><div class="kv">'+K('Cargo off · '+esc(g.from)+' (lb)',fmt(lbOf(offH)),cnt(offH))+K('Cargo on · '+esc(g.from)+' (lb)',fmt(lbOf(onH)),cnt(onH))+fuelT+K('Cargo aboard (lb)',fmt(g.cw),'leaving '+esc(g.from))+shT+K('Cargo off · '+esc(g.to)+' (lb)',fmt(lbOf(offA)),'after landing · '+cnt(offA))+'</div>'+
+  '<div class="cmt"><b>On at '+esc(g.from)+':</b> '+lst(onH)+'<br><b>Off at '+esc(g.from)+':</b> '+lst(offH)+'<br><b>Off at '+esc(g.to)+':</b> '+lst(offA)+'</div>'+
+  '<div class="foot">Pounds from the airway bills (kg × 2.20462). Fuel uplift is shown only when fuel is needed. The cargo center is the arm of all cargo aboard, rounded to 10 in.</div>');
  var focus=document.activeElement&&cp.contains(document.activeElement)&&document.activeElement.tagName==='INPUT';
  if(focus)return;
  $('phases').innerHTML=h.map(function(x,i){return '<section class="ph" data-i="'+i+'" aria-label="'+PH[i]+'">'+x+'</section>'}).join('');
@@ -1494,7 +1523,7 @@ $('cpOpen').addEventListener('click',function(){openCockpit(true)});
 $('cpEdit').addEventListener('click',function(){openCockpit(false)});
 $('cpLeg').addEventListener('click',function(){if(!M)return;ST.sel=(ST.sel+1)%M.legs.length;cpIdx=0;save();renderAll();fillFields()});
 window.addEventListener('resize',function(){if(!$('cockpit').hidden){var ph=$('phases');ph.scrollTop=cpIdx*ph.clientHeight}});
-document.addEventListener('keydown',function(e){if($('cockpit').hidden||(e.target&&/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)))return;var ph=$('phases');if(e.key==='ArrowDown'||e.key==='PageDown'){ph.scrollTo({top:Math.min(4,cpIdx+1)*ph.clientHeight,behavior:'smooth'});e.preventDefault()}if(e.key==='ArrowUp'||e.key==='PageUp'){ph.scrollTo({top:Math.max(0,cpIdx-1)*ph.clientHeight,behavior:'smooth'});e.preventDefault()}});
+document.addEventListener('keydown',function(e){if($('cockpit').hidden||(e.target&&/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)))return;var ph=$('phases');if(e.key==='ArrowDown'||e.key==='PageDown'){ph.scrollTo({top:Math.min(PH.length-1,cpIdx+1)*ph.clientHeight,behavior:'smooth'});e.preventDefault()}if(e.key==='ArrowUp'||e.key==='PageUp'){ph.scrollTo({top:Math.max(0,cpIdx-1)*ph.clientHeight,behavior:'smooth'});e.preventDefault()}});
 
 // ---------- Paperwork checklist ----------
 document.addEventListener('change',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-doc');if(k&&state){state.docs=state.docs||{};state.docs[k]=e.target.checked;save();renderAll()}});
@@ -1633,7 +1662,7 @@ function editor(){
   h+='<tr><th>Total (updates on Apply)</th><th class="n">'+f0(ew)+'</th><th class="n">'+f0(em)+' lb-in</th><th></th></tr></table></div><div><button type="button" class="ghost" id="addeq">Add equipment line</button></div><p class="note">These items are counted with the empty weight on every leg. Add anything else that rides on board all day, such as the nose kit, GPU, tires or forklift.</p>';
  }else if(tab=='route'){
   h+='<div class="sc"><table><tr><th>Stop #</th><th>Code</th><th>Arrive</th><th>Depart</th><th>NM from previous</th><th>Fuel +/- lb</th><th>Fuel stop</th><th>Max landing wt lb</th><th>Max T/O wt lb</th><th></th></tr>';
-  draft.route.forEach(function(s,i){h+='<tr><td>'+i+'</td><td>'+inp('route.'+i+'.code',s.code,'s')+'</td><td>'+(i==0?'':inp('route.'+i+'.arr',s.arr,'s'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.dep',s.dep,'s'))+'</td><td>'+(i==0?'':inp('route.'+i+'.nm',s.nm,'s','n'))+'</td><td>'+inp('route.'+i+'.adj',s.adj==null?'':s.adj,'s','n')+'</td><td><select data-p="route.'+i+'.fuel" data-t="n"><option value="1"'+(pref(s)?' selected':'')+'>Preferred</option><option value="0"'+(pref(s)?'':' selected')+'>Backup only</option></select></td><td>'+(i==0?'':inp('route.'+i+'.maxLD',s.maxLD==null?'':s.maxLD,'s','n'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.maxTO',s.maxTO==null?'':s.maxTO,'s','n'))+'</td><td>'+(i<draft.route.length-1?'<button type="button" class="ghost" data-ins="'+i+'">Insert stop after</button> ':'')+(i>0&&i<draft.route.length-1?'<button type="button" class="ghost" data-rm="'+i+'">Remove</button>':'')+'</td></tr>'});
+  draft.route.forEach(function(s,i){h+='<tr><td>'+i+'</td><td>'+inp('route.'+i+'.code',s.code,'s')+'</td><td>'+(i==0?'':inp('route.'+i+'.arr',s.arr,'s'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.dep',s.dep,'s'))+'</td><td>'+(i==0?'':inp('route.'+i+'.nm',s.nm,'s','n'))+'</td><td>'+inp('route.'+i+'.adj',s.adj==null?'':s.adj,'s','n')+'</td><td><select data-p="route.'+i+'.fuel" data-t="n"><option value="1"'+(pref(s)?' selected':'')+'>Preferred</option><option value="0"'+(pref(s)?'':' selected')+'>Backup only</option></select></td><td>'+(i==0?'':inp('route.'+i+'.maxLD',s.maxLD==null?'':s.maxLD,'s','n'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.maxTO',s.maxTO==null?'':s.maxTO,'s','n'))+'</td><td>'+(i<draft.route.length-1?'<button type="button" class="ghost" data-ins="'+i+'">Insert stop after</button> ':'')+(draft.route.length>2?'<button type="button" class="ghost" data-rm="'+i+'">Remove stop</button>':'')+'</td></tr>'});
   h+='</table></div><div><button type="button" class="ghost" id="addstop">Add stop at the end</button></div><p class="note">Codes are IATA (SJU) or ICAO (TJSJ). Times as HH:MM, same day. Fuel +/-: enter a minus if you burned more than planned on the leg into this stop; enter a plus for fuel added at this stop (it replaces the automatic uplift). APG takeoff and landing limits apply automatically once conditions are entered for a leg; a typed max weight applies as well, and the lower one holds. Removing a stop moves its cargo to the next stop; check the cargo tab afterward.</p>';
  }else{
   var lab={bew:'Basic empty weight lb (two-seat record)',mom:'Empty moment lb-in',crew:'Crew total lb',crewArm:'Crew arm in',fuelArm:'Fuel arm in',gear:'Gear retraction moment lb-in (aft)',taxi:'Taxi fuel per departure lb',res:'Minimum landing fuel lb (45 min)',cushion:'Extra planning cushion lb',burn:'Burn lb/hr (hobbs time)',dens:'Fuel density lb/gal',gnd0:'Ground time, first leg hr (block minus hobbs)',gnd:'Ground time, other legs hr',cap:'Usable fuel lb',mtow:'MTOW lb',ramp:'Max ramp lb',mlw:'Max landing lb',payload:'Design payload lb (warning)',buf:'CG margin that triggers a shift advisory in',lo:'Cargo zone start (arm in)',hi:'Cargo zone end (arm in)',dflArm:'Arm for en-route cargo with no freed space in'};
@@ -1651,6 +1680,16 @@ document.addEventListener('change',function(e){var t=e.target;if(!draft||!t.data
  if(!t.dataset.p)return;var v=t.value;if(t.dataset.t=='n'){v=v===''?'':+v}pset(t.dataset.p,v);
  var mm2=/^cargo\.(\d+)\.kg$/.exec(t.dataset.p);if(mm2){var lel=$('lb'+mm2[1]);if(lel)lel.value=((+v||0)*KG).toFixed(1).replace(/\.0$/,'')}
 });
+// Remove a stop (this also removes a leg). Cargo for that stop moves to the next stop. Fuel, weights and CG recalculate at once.
+var rmArm=-1;
+function removeStop(r){
+ var code=draft.route[r].code||('stop '+r);
+ draft.route.splice(r,1);var nl=draft.route.length-1;
+ draft.cargo.forEach(function(c){var on=+c.on,off=+c.off;if(on>r)on--;if(off>r)off--;on=Math.max(0,Math.min(on,nl-1));off=Math.max(on+1,Math.min(off,nl));c.on=on;c.off=off});
+ if(r===0&&draft.route[0]&&!draft.route[0].dep)draft.route[0].dep=draft.route[0].arr||'';
+ state=clone(draft);if(ST.sel>nl-1)ST.sel=Math.max(0,nl-1);
+ log.unshift({t:new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),note:'Removed stop '+code+': leg removed, fuel and weights recalculated',photo:false});
+ save();renderAll();fillFields();editor()}
 document.addEventListener('click',function(e){var t=e.target;if(!draft||!t.dataset)return;
  if(t.dataset.tab){tab=t.dataset.tab;editor()}
  else if(t.id=='addc'){draft.cargo.push({awb:'',dest:'',kg:0,on:0,off:draft.route.length-1,parm:'',note:''});editor()}
@@ -1659,7 +1698,7 @@ document.addEventListener('click',function(e){var t=e.target;if(!draft||!t.datas
  else if(t.dataset.deleq!=null){draft.equip.splice(+t.dataset.deleq,1);editor()}
  else if(t.id=='addstop'){var last=draft.route[draft.route.length-1];if(!last.dep)last.dep='';draft.route.push({code:'',arr:'',nm:0});editor()}
  else if(t.dataset.ins!=null){var i=+t.dataset.ins;draft.route.splice(i+1,0,{code:'',arr:'',dep:'',nm:0});draft.cargo.forEach(function(c){if(c.on>i)c.on++;if(c.off>i)c.off++});editor()}
- else if(t.dataset.rm!=null){var r=+t.dataset.rm;draft.route.splice(r,1);draft.cargo.forEach(function(c){if(c.on>r)c.on--;if(c.off>r)c.off--;});editor()}
+ else if(t.dataset.rm!=null){var r=+t.dataset.rm;if(rmArm!==r){rmArm=r;t.textContent='Tap again to remove';return}rmArm=-1;removeStop(r)}
 });
 $('pst').onclick=openPaste;$('chg').onclick=openModal;
 $('setbase').onclick=function(){base=clone(state);log.unshift({t:new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),note:'Baseline set to the current plan',photo:false});save();renderAll()};
