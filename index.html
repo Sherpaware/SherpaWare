@@ -292,7 +292,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 15:11 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 15:31 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -1262,6 +1262,49 @@ var SW = (function () {
 })();
 if (typeof module !== "undefined") module.exports = SW;
 </script>
+<script>//NATIVE-START
+// Bridge to the Capacitor iPad/iPhone app (see native/README.md). In a normal browser every function here does nothing and
+// the app uses the browser location service as before. Inside the native app:
+//  - watch(): background location (keeps running with ForeFlight on screen) via the background-geolocation plugin
+//  - notifyAsk(): a local notification with Yes / No buttons when a question comes up while SherpaWare is not on screen
+// Plugin calls follow the plugin READMEs and have NOT been run on a device yet.
+var SWN=(function(){
+ function W(){return typeof window!=='undefined'?window:globalThis}
+ function cap(){var c=W().Capacitor;return c||null}
+ function isNative(){var c=cap();try{return !!(c&&c.isNativePlatform&&c.isNativePlatform())}catch(e){return false}}
+ function plugin(name){var c=cap();if(!c)return null;try{return (c.Plugins&&c.Plugins[name])||(c.registerPlugin?c.registerPlugin(name):null)}catch(e){return null}}
+ function hidden(){var d=W().document;return !!(d&&d.visibilityState&&d.visibilityState!=='visible')}
+ // location: calls onPos with {coords:{latitude,longitude,speed},timestamp} (speed in m/s, like the browser), returns a promise of a handle
+ function watch(onPos,onErr){
+  var bg=plugin('BackgroundGeolocation');if(!isNative()||!bg||!bg.addWatcher)return null;
+  return Promise.resolve(bg.addWatcher({backgroundTitle:'SherpaWare is recording flight times',backgroundMessage:'Location is used only for block, takeoff and landing times.',requestPermissions:true,stale:false,distanceFilter:0},
+   function(loc,err){
+    if(err){if(onErr)onErr({message:err.code==='NOT_AUTHORIZED'?'location permission needed: allow Always in Settings':(err.message||'location error')});return}
+    if(!loc)return;
+    onPos({coords:{latitude:loc.latitude,longitude:loc.longitude,speed:(loc.speed!=null&&loc.speed>=0)?loc.speed:null,accuracy:loc.accuracy},timestamp:loc.time||Date.now()})
+   })).then(function(id){return {native:true,id:id}})}
+ function unwatch(h){var bg=plugin('BackgroundGeolocation');if(h&&h.native&&bg&&bg.removeWatcher)return Promise.resolve(bg.removeWatcher({id:h.id})).catch(function(){})}
+ // notifications
+ var pending={},nid=1000,ready=false;
+ function initNotes(){
+  if(ready)return;var ln=plugin('LocalNotifications');if(!isNative()||!ln)return;ready=true;
+  try{ln.requestPermissions()}catch(e){}
+  try{ln.registerActionTypes({types:[{id:'SWASK',actions:[{id:'yes',title:'Yes'},{id:'no',title:'No'}]}]})}catch(e){}
+  try{ln.addListener('localNotificationActionPerformed',function(ev){
+   var x=ev&&ev.notification&&ev.notification.extra,cb=x&&pending[x.q];
+   if(!cb||(ev.actionId!=='yes'&&ev.actionId!=='no'))return;delete pending[x.q];cb(ev.actionId==='yes')})}catch(e){}}
+ // Shows a banner with Yes/No only while the page is not visible. cb(yes) runs when a button is tapped. Returns true if sent.
+ function notifyAsk(q,cb){
+  var ln=plugin('LocalNotifications');if(!isNative()||!ln||!hidden())return false;initNotes();
+  var id=++nid;pending[id]=cb;
+  try{ln.schedule({notifications:[{id:id,title:q.title,body:q.body,actionTypeId:'SWASK',extra:{q:id},schedule:{at:new Date(Date.now()+500)}}]})}catch(e){delete pending[id];return false}
+  return true}
+ function clearPending(){pending={}}
+ return {isNative:isNative,watch:watch,unwatch:unwatch,notifyAsk:notifyAsk,initNotes:initNotes,clearPending:clearPending}
+})();
+//NATIVE-END
+if(typeof module!='undefined')module.exports={SWN:SWN};
+</script>
 <script>//FLUI-START
 // Flight log page and automatic block / takeoff / landing recording. Loaded before app.js; uses app globals at call time.
 // Actual times per leg live in ST.flog[legKey] (outZ, offZ, onZ, inZ, hobbsOut, fuelStart, burn, upGal, postGal, pax). Planned values show highlighted until an actual is entered.
@@ -1391,9 +1434,11 @@ function flShowAsk(){
  if(FLG.asking||!FLG.queue.length)return;var q=FLG.queue.shift();FLG.asking=true;
  var d=document.createElement('div');d.className='flask';d.setAttribute('role','alertdialog');
  d.innerHTML='<div class="flbox"><h3>'+esc(q.title)+'</h3><p>'+esc(q.body)+'</p><div class="btnrow"><button type="button" data-ans="1" class="yes">'+esc(q.yes)+'</button><button type="button" data-ans="0">'+esc(q.no)+'</button></div></div>';
- d.addEventListener('click',function(ev){var b=ev.target.closest('button[data-ans]');if(!b)return;var yes=b.getAttribute('data-ans')==='1';document.body.removeChild(d);FLG.asking=false;
-  var res=FLG.tr?FLG.tr.answer(q.kind,yes,q.data):null;if(res)flApplyEvent(res);else flSaveState();if(q.kind==='resume'){}flShowAsk();try{renderAll()}catch(x){}});
- document.body.appendChild(d)}
+ function done(yes){if(!d.parentNode)return;document.body.removeChild(d);FLG.asking=false;
+  var res=FLG.tr?FLG.tr.answer(q.kind,yes,q.data):null;if(res)flApplyEvent(res);else flSaveState();flShowAsk();try{renderAll()}catch(x){}}
+ d.addEventListener('click',function(ev){var b=ev.target.closest('button[data-ans]');if(!b)return;done(b.getAttribute('data-ans')==='1')});
+ document.body.appendChild(d);
+ if(typeof SWN!='undefined'&&q.kind!=='resume')SWN.notifyAsk(q,done)}
 function flOnEvents(evs){evs.forEach(function(e){
  if(e.type==='need-stand'){FLG.msg='mark the aircraft position to enable block out'}
  else if(e.type==='prompt-blockout')flAsk('blockout','Start block out?','Aircraft began moving at '+flZ(e.motionStart)+'Z. Yes records block out at that time.','Yes, block out','No',null);
@@ -1414,12 +1459,13 @@ function flStart(restore){
  else FLG.tr=new FlightTracker({airports:APT,planT:flPlanT(L.g.dep),stands:flStands(code)});
  FLG.tr.airports=APT;
  if(!flStands(code).length)FLG.msg='mark the aircraft position to enable block out';
- if(navigator.geolocation&&!FLG.watch)FLG.watch=navigator.geolocation.watchPosition(flOnPos,function(er){FLG.msg='location unavailable ('+er.message+')';try{renderAll()}catch(x){}},{enableHighAccuracy:true,maximumAge:0,timeout:30000});
- else if(!navigator.geolocation)FLG.msg='this device has no location service';
+ if(!FLG.watch&&typeof SWN!='undefined'&&SWN.isNative()){FLG.watch=true;SWN.initNotes();SWN.watch(flOnPos,function(er){FLG.msg=er.message;try{renderAll()}catch(x){}}).then(function(h){if(FLG.watch===true)FLG.watch=h;else SWN.unwatch(h)}).catch(function(er){FLG.watch=null;FLG.msg='location unavailable ('+((er&&er.message)||er)+')';try{renderAll()}catch(x){}})}
+ else if(navigator.geolocation&&!FLG.watch)FLG.watch=navigator.geolocation.watchPosition(flOnPos,function(er){FLG.msg='location unavailable ('+er.message+')';try{renderAll()}catch(x){}},{enableHighAccuracy:true,maximumAge:0,timeout:30000});
+ else if(!navigator.geolocation&&!FLG.watch)FLG.msg='this device has no location service';
  try{if(navigator.wakeLock&&!FLG.wl)navigator.wakeLock.request('screen').then(function(w){FLG.wl=w}).catch(function(){})}catch(e){}
  flSaveState();try{renderAll()}catch(e){}}
 function flStop(keepWatch){
- if(FLG.watch&&!keepWatch){navigator.geolocation.clearWatch(FLG.watch);FLG.watch=null}
+ if(FLG.watch&&!keepWatch){if(FLG.watch&&FLG.watch.native)SWN.unwatch(FLG.watch);else if(FLG.watch!==true)navigator.geolocation.clearWatch(FLG.watch);FLG.watch=null}
  if(FLG.wl&&!keepWatch){try{FLG.wl.release()}catch(e){}FLG.wl=null}
  FLG.tr=null;ST.ft=null;try{save()}catch(e){}try{renderAll()}catch(e){}}
 function flMark(kind){
