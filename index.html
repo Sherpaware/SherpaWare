@@ -292,7 +292,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 15:31 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 19:28 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -1882,7 +1882,8 @@ function planRender(M){
  var tbB=rb.legs.reduce(function(a,g){return a+g.burn},0),tbN=L.reduce(function(a,g){return a+g.burn},0);
  if(Math.abs(tbB-tbN)>1)A.push({l:'info',t:'Total planned burn changed from '+f0(tbB)+' to '+f0(tbN)+' lb.'});
  var stt=state.status,dc=state.docs||{},plH=L.reduce(function(a,g){return a+g.hob},0),now=new Date(),sc=statusChecks(stt,plH,L.length,now);
- var need=[['itin','Crew itinerary'],['awb','House airway bills'],['stat','Aircraft status sheet'],['cbp','CBP stamped Gen Dec / manifest']],missing=need.filter(function(x){return x[0]=='awb'?!(state.cargo&&state.cargo.length):!dc[x[0]]}).map(function(x){return x[1]});
+ var hasCg=!!(state.cargo&&state.cargo.length),awbOk=hasCg||!!dc.nocargo,need=[['itin','Crew itinerary'],['awb','House airway bills'],['stat','Aircraft status sheet']],missing=need.filter(function(x){return x[0]=='awb'?!awbOk:!dc[x[0]]}).map(function(x){return x[1]});
+ if(hasCg&&!dc.cbp)A.push({l:'info',t:'Reminder: the signed CBP Gen Dec is brought to the aircraft by the handler once the cargo is loaded. It does not arrive by email.',s:'Reminder: handler brings the signed Gen Dec after loading.'});
  if(prop)A.push({l:'warn',t:'Itinerary is a proposed schedule, awaiting confirmation: '+state.itin.src+' Times, burn and fuel are planned from it.',s:'PROPOSED itinerary, awaiting confirmation.'});
  var SHORT={'Crew itinerary':'itinerary','House airway bills':'airway bills','Aircraft status sheet':'status sheet','CBP stamped Gen Dec / manifest':'CBP Gen Dec'};
  if(missing.length)A.push({l:'bad',t:'Paperwork missing: '+missing.join(', ')+'. Use PASTE FLIGHT EMAILS HERE or mark it received below.',s:'MISSING: '+missing.map(function(x){return SHORT[x]||x}).join(', ')+'.'});
@@ -1893,7 +1894,7 @@ function planRender(M){
  TRIPA=A;
  $('alerts').hidden=!A.length;
  $('alist').innerHTML=A.map(function(a){return '<li class="al '+a.l+'">'+esc(a.t)+'</li>'}).join('');
- var ph='';need.forEach(function(x){var ok=x[0]=='awb'?!!(state.cargo&&state.cargo.length):!!dc[x[0]];ph+='<label class="'+(ok?'':'miss')+'"><input type="checkbox" data-doc="'+x[0]+'"'+(ok?' checked':'')+(x[0]=='awb'?' disabled':'')+'> '+x[1]+(ok?'':' MISSING')+'</label>'});$('pap').innerHTML=ph;
+ var ph='';need.forEach(function(x){if(x[0]=='awb'){if(hasCg){ph+='<label><input type="checkbox" checked disabled> '+x[1]+'</label>'}else{ph+='<label class="'+(dc.nocargo?'':'miss')+'"><input type="checkbox" data-doc="nocargo"'+(dc.nocargo?' checked':'')+'> No cargo on this trip (training, positioning)'+(dc.nocargo?'':' · or load airway bills')+'</label>'}return}var ok=!!dc[x[0]];ph+='<label class="'+(ok?'':'miss')+'"><input type="checkbox" data-doc="'+x[0]+'"'+(ok?' checked':'')+'> '+x[1]+(ok?'':' MISSING')+'</label>'});ph+='<label><input type="checkbox" data-doc="cbp"'+(dc.cbp?' checked':'')+'> Signed CBP Gen Dec on board <span class="sub">(handler brings it after loading)</span></label>';$('pap').innerHTML=ph;
  if(stt){
   var sh='<table><tr><th>Hours item</th><th>Current</th><th>Due</th><th>Remaining</th><th>After trip</th><th>Cycles now</th><th>Check</th></tr>';
   sc.hours.forEach(function(h){sh+='<tr><td>'+esc(h.n)+' <span class="sub">'+esc(h.why)+'</span></td><td class="n">'+h.cur.toFixed(1)+'</td><td class="n">'+h.due.toFixed(1)+'</td><td class="n">'+h.rem.toFixed(1)+'</td><td class="n">'+h.after.toFixed(1)+'</td><td class="n">'+h.cyc+(h.cr!=null?' ('+h.cr+' left)':'')+'</td><td class="'+(h.lvl=='ok'?'ok':h.lvl)+'">'+(h.lvl=='ok'?'OK':h.lvl=='warn'?'Within 10 hr':'EXCEEDED')+'</td></tr>'});
