@@ -28,3 +28,7 @@ Wraps the same single-file web app in a native iPad shell so location keeps runn
 - Notification action buttons answer without opening the app; confirm the answer reaches the tracker while backgrounded.
 - Location indicator and battery use. Force-quit stops tracking.
 - iOS app does not use the service worker or the hosted weather; use the relay (SW_RELAY) for weather and NOTAMs.
+
+## TestFlight setup (written 16 Oct 16:50, pilot registered an individual Apple Developer account that day; approval pending)
+Workflow `ios-testflight` (repo root .github/workflows, source copy native/ios-testflight.yml) archives with automatic signing through an App Store Connect API key and uploads to TestFlight. UNTESTED until the secrets exist. The compile check (`ios-build`) passed with the app icon and encryption flag added (run after commit 13bd57b).
+Pilot steps after approval: (1) Team ID from developer.apple.com Membership; (2) App Store Connect API key (start with App Manager, raise to Admin if certificate creation fails): note Issuer ID and Key ID, download the .p8 once; (3) create the app record with bundle id com.sherpaware.n282bt (name may need a suffix if taken); (4) add GitHub secrets APPLE_TEAM_ID, ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY_P8 (never paste these into chat); (5) invite Matt and others as App Store Connect users (internal TestFlight testers skip beta review); (6) run the workflow from the Actions tab; (7) install through the TestFlight app on each iPad mini. TestFlight builds expire after 90 days; the build number is the GitHub run number.
