@@ -264,7 +264,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 12:44 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 13:03 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -683,7 +683,7 @@ var KG=2.20462;
 var COMP=[['A',-260,-197,400],['B',-92,-10,2730],['C',-10,38,2400],['D',38,65,1330],['E',65,80,760],['F',80,156,2530],['G',156,232,2530],['H',232,314,800]];
 // N282BT aircraft profile (official W&B form values) and the 13 Oct 2026 demo trip (MHJMEX).
 var DEF={
- set:{bew:16449.5,mom:613426.4,crew:380,crewArm:-150,fuelArm:50,gear:6000,gnd0:0.2,gnd:0.1,buf:1,taxi:100,res:750,cushion:0,burn:1000,cap:4368,dens:6.5,mtow:25600,ramp:25700,mlw:25100,payload:7280,lo:-50,hi:150,dflArm:75},
+ set:{bew:16449.5,mom:613426.4,crew:380,crewArm:-150,fuelArm:50,gear:6000,gnd0:0.2,gnd:0.1,buf:1,taxi:100,res:750,cushion:0,burn:1000,cap:4275,dens:6.5,mtow:25600,ramp:25700,mlw:25100,payload:7280,lo:-50,hi:150,dflArm:75},
  equip:[{n:'Engine plugs and prop ties',lb:5,arm:-235},{n:'Hydraulic cannister',lb:45,arm:-205},{n:'Tool kit',lb:16,arm:-205},{n:'Black crate',lb:34,arm:-130},{n:'Oxygen bottle',lb:10,arm:-130},{n:'Inverter',lb:28,arm:-120},{n:'Fan',lb:5,arm:-120},{n:'Black bin, main compartment',lb:18,arm:-109},{n:'Life raft',lb:59,arm:-109},{n:'Water survival kits 1 and 2',lb:24,arm:-60},{n:'Ladder',lb:30,arm:-35},{n:'Tie-down equipment',lb:50,arm:37},{n:'Nets',lb:68,arm:37},{n:'Aircraft struts',lb:52,arm:220}],
  docs:{itin:true,awb:true,stat:true,cbp:true},
  status:{asOf:'2026-10-13 11:56Z',hours:[{n:'Airframe',cur:8052.9,due:8107.5,why:'1A CHECK',cyc:6699,cycDue:null},{n:'Engine 1',cur:19457.9,due:19803.1,why:'NO. 1 ENGINE - FUEL NOZZLES AND BORESCOPE INSP.',cyc:23601,cycDue:null},{n:'Engine 2',cur:24606.9,due:24731.0,why:'NO. 2 ENGINE - FUEL NOZZLES AND BORESCOPE INSP.',cyc:29381,cycDue:null}],dates:[{n:'OVERHAUL NO. 2 PROPELLER',exp:'2026-10-31'},{n:'Aircraft registration',exp:'2028-06-30'},{n:'CBP border overflight exemption',exp:'2029-04-23'},{n:'CBP decals',exp:'2026-12-31'},{n:'Life raft inspection',exp:'2029-03-31'},{n:'VOR check',exp:'2026-10-17'}]},
@@ -733,7 +733,7 @@ function calc(st){
   if(hasN(R[i+1].apgLD)&&+R[i+1].apgLD<ldCap){ldCap=+R[i+1].apgLD;ldBy='APG landing limit at '+R[i+1].code}
   var LIM=[[S.cap,'fuel capacity'],[toCap-zfw+S.taxi,toBy],[S.ramp-zfw,'max ramp weight'],[ldCap-zfw+burn+S.taxi,ldBy]];
   var STR=Math.min(S.cap,S.mtow-zfw+S.taxi,S.ramp-zfw,S.mlw-zfw+burn+S.taxi);
-  var maxRamp=Math.min.apply(null,LIM.map(function(x){return x[0]})),limBy=LIM.filter(function(x){return x[0]<=maxRamp+1e-9})[0][1];
+  var rawMax=Math.min.apply(null,LIM.map(function(x){return x[0]})),maxRamp=Math.floor(rawMax+1e-9),limBy=LIM.filter(function(x){return x[0]<=rawMax+1e-9})[0][1];
   var need=S.res+(+S.cushion||0)+burnPlan+S.taxi,ramp,up,minUp=0,skip=false,backup=false,manual=false;
   if(i==0){if(dadj>0){ramp=dadj;manual=true}else{ramp=maxRamp}up=ramp;minUp=Math.max(0,need)}
   else if(dadj>0){ramp=arrFuel+dadj;up=dadj;minUp=Math.max(0,need-arrFuel);manual=true;backup=!pref(R[i])}
@@ -1502,7 +1502,15 @@ function renderCockpit(){
  // 6 Cargo and fuel at the departure station, and cargo coming off on arrival (pounds only)
  var cgo=state.cargo||[],lbOf=function(a){return a.reduce(function(s2,x){return s2+(+x.kg||0)*KG},0)},offH=cgo.filter(function(x){return +x.off===L.i&&L.i>0}),onH=cgo.filter(function(x){return +x.on===L.i}),offA=cgo.filter(function(x){return +x.off===L.i+1});
  var cnt=function(a){return a.length?a.length+' airway bill'+(a.length>1?'s':''):'None'},lst=function(a){return a.length?a.map(function(x){return esc(x.awb||'(no AWB)')+' → '+esc(x.dest||'?')+' '+fmt((+x.kg||0)*KG)+' lb'}).join(' · '):'none'};
- var fuelT=g.i===0?K('Fuel to (ramp)',fmt(g.ramp),fmt(g.ramp/(+state.set.dens||6.5))+' gal at '+esc(g.from)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''):(g.skip?K('Fuel uplift','NONE','Arrive '+esc(g.from)+' with '+fmt(g.ramp)+' lb, no uplift needed'):K('Fuel uplift',fmt(g.up),fmt(g.up/(+state.set.dens||6.5))+' gal at '+esc(g.from)+' · ramp '+fmt(g.ramp)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''));
+ var dn=+state.set.dens||6.5,fob=(ST.glob&&ST.glob.fob0!=null&&ST.glob.fob0!=='')?+ST.glob.fob0:null;
+ var sig=(state.route||[]).map(function(r){return r.code}).join('-'),LL=ST.glob&&ST.glob.lastLf;
+ if(L.i===n-1&&ST.glob&&(!LL||LL.sig!==sig||LL.lf!==Math.round(g.lf))){ST.glob.lastLf={sig:sig,lf:Math.round(g.lf)}}
+ var exp=(LL&&LL.sig!==sig)?LL.lf:null;
+ function gal(x){return fmt(x)+' lb · '+fmt(x/dn)+' gal'}
+ var fuelT=g.i===0?(fob==null?
+  '<div class="k warn">'+NUM('glob:fob0','Fuel remaining now (lb) · enter actual',null)+'<div class="cmt">'+(exp!=null?'Expected from last landing: <b>'+fmt(exp)+' lb</b> → gallons to add for ramp '+fmt(g.ramp)+': <b>'+gal(Math.max(0,g.ramp-exp))+'</b>. Enter the actual fuel to confirm.':'Enter the fuel on board before uplift to get gallons to add. Planned ramp '+gal(g.ramp)+'.')+'</div></div>':
+  '<div class="k">'+NUM('glob:fob0','Fuel remaining now (lb)',fob)+'<div class="cmt">Add to ramp '+fmt(g.ramp)+': <b>'+gal(Math.max(0,g.ramp-fob))+'</b>'+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):'')+'</div></div>'):
+  (g.skip?K('Fuel uplift','NONE','Arrive '+esc(g.from)+' with '+fmt(g.ramp)+' lb, no uplift needed'):K('Fuel uplift',fmt(g.up),fmt(g.up/dn)+' gal added at '+esc(g.from)+' · ramp '+fmt(g.ramp)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''));
  var shT='';if(g.cw>0&&Math.abs(g.dm||0)>0.5){var cur=g.cm/g.cw,tgt=(g.cm+g.dm)/g.cw;shT=K('Move cargo center to',Math.round(tgt/10)*10,'arm in · now '+Math.round(cur/10)*10+' · '+(g.dm>0?'shift aft':'shift forward')+' to restore the CG margin','warn')}
  h.push(head(5)+'<div class="legline">At <b>'+esc(g.from)+'</b> · leg '+(L.i+1)+' of '+n+'</div><div class="kv">'+K('Cargo off · '+esc(g.from)+' (lb)',fmt(lbOf(offH)),cnt(offH))+K('Cargo on · '+esc(g.from)+' (lb)',fmt(lbOf(onH)),cnt(onH))+fuelT+K('Cargo aboard (lb)',fmt(g.cw),'leaving '+esc(g.from))+shT+K('Cargo off · '+esc(g.to)+' (lb)',fmt(lbOf(offA)),'after landing · '+cnt(offA))+'</div>'+
   '<div class="cmt"><b>On at '+esc(g.from)+':</b> '+lst(onH)+'<br><b>Off at '+esc(g.from)+':</b> '+lst(offH)+'<br><b>Off at '+esc(g.to)+':</b> '+lst(offA)+'</div>'+
