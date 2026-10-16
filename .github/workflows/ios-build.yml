@@ -12,7 +12,7 @@ jobs:
         working-directory: native
         run: |
           npm install
-          npm ls --depth=0
+          npm ls --depth=0 | tee -a $GITHUB_STEP_SUMMARY
           python3 scripts/prepare_web.py
           npx cap add ios
           python3 scripts/patch_ios.py
@@ -21,4 +21,6 @@ jobs:
         working-directory: native/ios/App
         run: |
           if [ -d App.xcworkspace ]; then T="-workspace App.xcworkspace"; else T="-project App.xcodeproj"; fi
-          xcodebuild $T -scheme App -sdk iphonesimulator -configuration Debug build CODE_SIGNING_ALLOWED=NO | tail -40
+          set -o pipefail
+          xcodebuild $T -scheme App -sdk iphonesimulator -configuration Debug build CODE_SIGNING_ALLOWED=NO | tee build.log | tail -40
+          grep -q "BUILD SUCCEEDED" build.log
