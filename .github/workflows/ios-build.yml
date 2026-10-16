@@ -1,0 +1,24 @@
+# Compile check for the iPad app: no signing, no Apple account. Run it from the Actions tab (Run workflow).
+name: ios-build
+on: { workflow_dispatch: {}, push: { paths: ['native/**', '.github/workflows/ios-build.yml'] } }
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install Capacitor and add the iOS project
+        working-directory: native
+        run: |
+          npm install
+          npm ls --depth=0
+          python3 scripts/prepare_web.py
+          npx cap add ios
+          python3 scripts/patch_ios.py
+          npx cap sync ios
+      - name: Build for the iPad simulator
+        working-directory: native/ios/App
+        run: |
+          if [ -d App.xcworkspace ]; then T="-workspace App.xcworkspace"; else T="-project App.xcodeproj"; fi
+          xcodebuild $T -scheme App -sdk iphonesimulator -configuration Debug build CODE_SIGNING_ALLOWED=NO | tail -40

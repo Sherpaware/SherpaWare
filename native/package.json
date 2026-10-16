@@ -1,0 +1,21 @@
+{
+  "name": "sherpaware-ios",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor wrapper for SherpaWare (iPad mini). Web code comes from ../dist; see README.md.",
+  "scripts": {
+    "prepare-web": "python3 scripts/prepare_web.py",
+    "ios:add": "npx cap add ios && python3 scripts/patch_ios.py",
+    "ios:sync": "npm run prepare-web && npx cap sync ios",
+    "ios:open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "latest",
+    "@capacitor/ios": "latest",
+    "@capacitor/local-notifications": "latest",
+    "@capacitor-community/background-geolocation": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "latest"
+  }
+}

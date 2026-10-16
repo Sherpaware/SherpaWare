@@ -1,0 +1,7 @@
+{
+  "appId": "com.sherpaware.n282bt",
+  "appName": "SherpaWare",
+  "webDir": "www",
+  "ios": { "contentInset": "always", "limitsNavigationsToAppBoundDomains": false },
+  "plugins": { "LocalNotifications": { "smallIcon": "ic_stat_icon" } }
+}
