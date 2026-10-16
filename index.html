@@ -57,6 +57,18 @@ button.yel{background:var(--yel);color:#1a1400;border-color:#c9a200}
 button.red{background:var(--red);color:#fff;border-color:var(--red)}
 .cmd{display:flex;flex-wrap:wrap;gap:8px}
 .cmd button.yel,.cmd button.red{padding:12px 16px;font-size:16px}
+.topgrid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+.topgrid .flights{flex:1 1 240px;max-width:420px;margin:0}
+.topgrid .cmd.side{flex:0 0 auto;margin-left:auto;flex-direction:column;align-items:stretch;min-width:220px}
+@media(max-width:700px){.topgrid .flights,.topgrid .cmd.side{flex:1 1 100%;min-width:0;max-width:none;margin-left:0}}
+.flights .fh{font-size:15px;margin:0 0 6px}
+.flights .fl{display:flex;gap:4px;margin-bottom:6px}
+.flights .fl>button:first-child{flex:1;text-align:left;line-height:1.35;padding:8px 10px}
+.flights .fl.on>button:first-child{outline:3px solid var(--rule)}
+.flights .fl .x{flex:0 0 auto;padding:4px 10px}
+.flights .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:var(--tide-soft)}
+.flights .tag.w{background:#b00020;color:#fff}
+.flights details{margin-top:6px}
 .legs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .leg{display:inline-flex;align-items:center;border:1.5px solid var(--rule);border-radius:4px;overflow:hidden;font:700 16px var(--f-label);letter-spacing:.05em}
 .leg button{border:0;border-radius:0;background:transparent;color:var(--ink);padding:6px 10px;font:inherit}
@@ -292,7 +304,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 19:28 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 19:58 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -306,11 +318,13 @@ li.al.info{border-left-color:var(--tide)}
     <h2 id="h-start">No trip loaded</h2>
     <p class="hint" style="margin:0">Start from the day's paperwork, enter a route by hand, or open the 13 Oct trip as a demo.</p>
     <div id="prepList" style="display:grid;gap:8px"></div>
+    <aside class="flights" id="flights2" aria-label="Upcoming flights"></aside>
     <div class="cmd"><button type="button" class="yel" id="stPaste">PASTE FLIGHT EMAILS HERE</button><button type="button" id="stNew">Enter a route</button><button type="button" class="ghost" id="stDemo">Open the demo trip</button></div>
   </section>
 
   <div id="tripUI" hidden>
-    <div class="cmd"><button type="button" class="yel" id="pst">PASTE FLIGHT EMAILS HERE</button><button type="button" class="red" id="chg">CHANGE ON THE FLY</button><button type="button" class="ghost" id="newTrip">New trip</button><button type="button" class="ghost" id="prepBtn" hidden>Load prepared trip</button><span class="hint" id="newMsg"></span></div>
+    <div class="topgrid"><aside class="panel flights" id="flights" aria-label="Upcoming flights"></aside>
+    <div class="cmd side"><button type="button" class="yel" id="pst">PASTE FLIGHT EMAILS HERE</button><button type="button" class="red" id="chg">CHANGE ON THE FLY</button><button type="button" class="ghost" id="newTrip">New trip</button><button type="button" class="ghost" id="prepBtn" hidden>Load prepared trip</button><span class="hint" id="newMsg"></span></div></div>
 
     <div class="banner" id="pwBar" hidden><span><b>New paperwork from email</b> · <span id="pwText"></span></span><button type="button" id="pwReview">Review and add</button></div>
 
@@ -881,6 +895,7 @@ function parseOne(text,routeCodes){
  });
  var lr=/Leg\s*(\d+)\s*:\s*Pax:\s*\d+\s+([A-Z]{3,4})\s+\d+\/\d+\/\d+\s*-\s*(\d\d:\d\d)\s*[A-Z]{2,4}[^\n]*?(\d+):(\d\d)[^\w\n]+([A-Z]{3,4})\s+\d+\/\d+\/\d+\s*-\s*(\d\d:\d\d)/g,L;
  while((L=lr.exec(text)))out.legs.push({n:+L[1],from:iata(L[2]),dep:L[3],to:iata(L[6]),arr:L[7],block:(+L[4])*60+(+L[5]),nm:0});
+ var dm0=/Leg\s*1\s*:\s*Pax:\s*\d+\s+[A-Z]{3,4}\s+(\d+)\/(\d+)\/(\d{4})/.exec(text);if(dm0)out.date=dm0[3]+'-'+('0'+dm0[1]).slice(-2)+'-'+('0'+dm0[2]).slice(-2);
  var dr=/Leg\s*(\d+)\s*:\s*[A-Z]{3,4}[^\w\n]+[A-Z]{3,4}[^\n]*?Distance:\s*(\d+)\s*nm/g,D;
  while((D=dr.exec(text))){out.legs.forEach(function(l){if(l.n==+D[1])l.nm=+D[2]})}
  // SherpaWare: proposed schedule tables (SwiftPac / Vincy "SCHEDULE SHORTS/C208B": FROM TO FLT# DEPART ARRIVE, times like 9.00)
@@ -1692,7 +1707,10 @@ var state=null,base=null,log=[],M=null,draft=null,tab='cargo',photoURL=null;
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function loadStore(){try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s){for(var k in s)ST[k]=s[k]}}catch(e){}
  if(ST.trip&&ST.trip.state){state=ST.trip.state;base=ST.trip.base||clone(state);log=ST.trip.log||[]}else{state=null;base=null;log=[]}}
-function save(){ST.trip=state?{state:state,base:base,log:log}:null;try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){}}
+function save(){ST.trip=state?{state:state,base:base,log:log}:null;
+ if(state){if(!state.tid)state.tid='t'+Date.now().toString(36);ST.lib=ST.lib||{};ST.lib[state.tid]={t:{state:state,base:base,log:log},ts:Date.now()};
+  var ks=Object.keys(ST.lib);if(ks.length>15){ks.sort(function(x,y){return ST.lib[x].ts-ST.lib[y].ts});while(ks.length>15)delete ST.lib[ks.shift()]}}
+ try{localStorage.setItem(KEY,JSON.stringify(ST))}catch(e){}}
 var $=function(id){return document.getElementById(id)};
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function f0(x){return Math.round(x).toLocaleString('en-US')}
@@ -1717,7 +1735,7 @@ function wxObj(raw,rwy){var m=TOLD.parseMetar(raw),o={metar:raw,rwy:rwy,wsrc:'tr
  if(m.wind){o.wdir=m.wind.vrb?'':String(m.wind.dir);o.wspd=String(m.wind.spd);o.gust=m.wind.gust;o.vrb=m.wind.vrb}return o}
 // Prepared trips: built by Claude from the day's emails, so a crew iPad can open them with one tap.
 var PREP=[];
-function loadPrep(p){state=p.trip();base=clone(state);log=[{t:new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),note:'Loaded prepared trip: '+p.label,photo:false}];clearLegData();save();renderAll();fillFields()}
+function loadPrep(p){state=p.trip();state.tid=p.id;base=clone(state);log=[{t:new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),note:'Loaded prepared trip: '+p.label,photo:false}];clearLegData();save();renderAll();fillFields()}
 $('prepList').innerHTML=PREP.map(function(p,i){return '<div class="banner"><span><b>'+esc(p.label)+'</b><br><span class="hint">'+esc(p.note)+'</span></span><button type="button" data-prep="'+i+'">Open this trip</button></div>'}).join('');
 $('prepList').addEventListener('click',function(e){var b=e.target.closest('[data-prep]');if(b)loadPrep(PREP[+b.getAttribute('data-prep')])});
 var prepArmed=false;$('prepBtn').onclick=function(){var p=PREP[0];if(!p)return;if(!prepArmed){prepArmed=true;$('newMsg').textContent='Tap again to replace this trip with '+p.label+'.';setTimeout(function(){prepArmed=false;$('newMsg').textContent=''},5000);return}prepArmed=false;$('newMsg').textContent='';loadPrep(p)};
@@ -1820,9 +1838,32 @@ $('pwReview').onclick=function(){var nw=pwNew();if(!nw.length||!state)return;ope
 
 // ---------- Render everything ----------
 var TRIPA=[];
+
+// ---------- Flight list (saved and prepared trips) ----------
+function fdate(d){if(!d)return 'No date';var x=new Date(d+'T12:00:00');return isNaN(x)?d:x.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'})}
+function flightRows(){var rows=[],cur=state&&state.tid,lib=ST.lib||{},today=new Date().toISOString().slice(0,10);
+ Object.keys(lib).forEach(function(id){var e=lib[id],s=e.t.state;if(!s||s.demo)return;
+  var codes=(s.route||[]).map(function(r){return r.code}).filter(Boolean),flts=(s.route||[]).map(function(r){return r.flt}).filter(Boolean),cg=(s.cargo||[]).length,dc=s.docs||{};
+  rows.push({id:id,date:s.date||'',ts:e.ts,route:codes.length>1?codes.join(' → '):'Route not set',flt:flts.join(' / '),cur:id===cur,
+   tags:[(s.itin&&s.itin.status==='proposed')?'PROPOSED':'',dc.itin?'':'no itinerary',cg?cg+' AWB':(dc.nocargo?'no cargo':'no cargo loaded')].filter(Boolean)})});
+ PREP.forEach(function(p,i){if(lib[p.id])return;rows.push({prep:i,date:p.id.slice(0,10),ts:0,route:p.label.split('·')[1]?p.label.split('·')[1].trim():p.label,flt:'',cur:false,tags:['prepared']})});
+ var up=rows.filter(function(r){return !r.date||r.date>=today}).sort(function(a,b){return (a.date||'9999').localeCompare(b.date||'9999')||b.ts-a.ts});
+ var past=rows.filter(function(r){return r.date&&r.date<today}).sort(function(a,b){return b.date.localeCompare(a.date)});
+ return {up:up,past:past}}
+function flightHtml(r){return '<div class="fl'+(r.cur?' on':'')+'"><button type="button" '+(r.prep!=null?'data-fprep="'+r.prep+'"':'data-fsel="'+esc(r.id)+'"')+' aria-pressed="'+!!r.cur+'"><b>'+esc(fdate(r.date))+'</b> '+(r.cur?'<span class="tag">OPEN</span> ':'')+'<br>'+esc(r.route)+(r.flt?' <span class="hint">'+esc(r.flt)+'</span>':'')+'<br>'+r.tags.map(function(t){return '<span class="tag'+(t=='PROPOSED'||t=='no itinerary'?' w':'')+'">'+esc(t)+'</span>'}).join(' ')+'</button>'+(r.id?'<button type="button" class="ghost x" data-fdel="'+esc(r.id)+'" aria-label="Remove this flight">×</button>':'')+'</div>'}
+function renderFlights(){var f=flightRows(),h='';
+ h+=f.up.length?f.up.map(flightHtml).join(''):'<p class="hint">No flights saved yet. Paste the flight emails or add a new trip and it will appear here.</p>';
+ if(f.past.length)h+='<details><summary class="hint">Past flights ('+f.past.length+')</summary>'+f.past.map(flightHtml).join('')+'</details>';
+ ['flights','flights2'].forEach(function(id){var el=$(id);if(el)el.innerHTML='<h2 class="fh">Upcoming flights</h2>'+h})}
+function selectTrip(id){var e=(ST.lib||{})[id];if(!e||(state&&state.tid===id))return;save();state=clone(e.t.state);base=e.t.base?clone(e.t.base):clone(state);log=e.t.log||[];ST.sel=0;clearLegData();save();renderAll();fillFields()}
+document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-fsel],[data-fprep],[data-fdel]');if(!t)return;
+ if(t.hasAttribute('data-fsel'))selectTrip(t.getAttribute('data-fsel'));
+ else if(t.hasAttribute('data-fprep')){var p=PREP[+t.getAttribute('data-fprep')];if(p){if(state)save();loadPrep(p)}}
+ else{var id=t.getAttribute('data-fdel');if(!confirm('Remove this flight from the list?'))return;delete ST.lib[id];if(state&&state.tid===id){state=null;base=null;log=[];ST.trip=null}save();renderAll()}});
 function renderAll(){
  var has=!!state;
  $('start').hidden=has;$('tripUI').hidden=!has;$('demoBar').hidden=!(has&&state.demo);
+ renderFlights();
  M=has?SW.build(ST,D):null;
  if(M&&ST.sel>=M.legs.length)ST.sel=0;
  var wxCh=M&&autoWx();if(wxCh)M=SW.build(ST,D);
@@ -2245,7 +2286,7 @@ function pasteReview(txt){
   if(pres.legs.length&&(repl||same)){
    if(pres.proposed){if(repl||!(draft.itin&&draft.itin.status==='confirmed'))draft.itin={status:'proposed',src:'Proposed schedule'+(pres.schedDay?' ('+pres.schedDay+')':'')+' pasted '+new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+'.'}}
    else draft.itin={status:'confirmed',src:'Crew itinerary.'};
-   pres.legs.forEach(function(l,i){if(draft.route[i]&&l.flt)draft.route[i].flt=l.flt})}
+   pres.legs.forEach(function(l,i){if(draft.route[i]&&l.flt)draft.route[i].flt=l.flt});if(pres.date)draft.date=pres.date}
   if(pres.tripNo)draft.tripNo=pres.tripNo;if(pres.booking)draft.booking=pres.booking;
   var blank={itin:false,awb:false,stat:false,cbp:false};
   if(pres.status&&$('pst2')&&$('pst2').checked){draft.status=pres.status;draft.docs=draft.docs||clone(blank);draft.docs.stat=true}
@@ -2277,6 +2318,7 @@ function editor(){
   draft.equip.forEach(function(e,i){h+='<tr><td>'+inp('equip.'+i+'.n',e.n,'w')+'</td><td>'+inp('equip.'+i+'.lb',e.lb,'s','n')+'</td><td>'+inp('equip.'+i+'.arm',e.arm,'s','n')+'</td><td><button type="button" class="ghost" data-deleq="'+i+'">Remove</button></td></tr>'});
   h+='<tr><th>Total (updates on Apply)</th><th class="n">'+f0(ew)+'</th><th class="n">'+f0(em)+' lb-in</th><th></th></tr></table></div><div><button type="button" class="ghost" id="addeq">Add equipment line</button></div><p class="note">These items are counted with the empty weight on every leg. Add anything else that rides on board all day, such as the nose kit, GPU, tires or forklift.</p>';
  }else if(tab=='route'){
+  h+='<p><label>Flight date <input type="date" data-p="date" data-t="s" value="'+esc(draft.date||'')+'"></label> <span class="sub">(read from the itinerary when it is pasted; it places the flight in the list)</span></p>';
   h+='<div class="sc"><table><tr><th>Stop #</th><th>Code</th><th>Arrive</th><th>Depart</th><th>NM from previous</th><th>Fuel +/- lb</th><th>Fuel stop</th><th>Max landing wt lb</th><th>Max T/O wt lb</th><th></th></tr>';
   draft.route.forEach(function(s,i){h+='<tr><td>'+i+'</td><td>'+inp('route.'+i+'.code',s.code,'s')+'</td><td>'+(i==0?'':inp('route.'+i+'.arr',s.arr,'s'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.dep',s.dep,'s'))+'</td><td>'+(i==0?'':inp('route.'+i+'.nm',s.nm,'s','n'))+'</td><td>'+inp('route.'+i+'.adj',s.adj==null?'':s.adj,'s','n')+'</td><td><select data-p="route.'+i+'.fuel" data-t="n"><option value="1"'+(pref(s)?' selected':'')+'>Preferred</option><option value="0"'+(pref(s)?'':' selected')+'>Backup only</option></select></td><td>'+(i==0?'':inp('route.'+i+'.maxLD',s.maxLD==null?'':s.maxLD,'s','n'))+'</td><td>'+(i==draft.route.length-1?'':inp('route.'+i+'.maxTO',s.maxTO==null?'':s.maxTO,'s','n'))+'</td><td>'+(i<draft.route.length-1?'<button type="button" class="ghost" data-ins="'+i+'">Insert stop after</button> ':'')+(draft.route.length>2?'<button type="button" class="ghost" data-rm="'+i+'">Remove stop</button>':'')+'</td></tr>'});
   h+='</table></div><div><button type="button" class="ghost" id="addstop">Add stop at the end</button></div><p class="note">Codes are IATA (SJU) or ICAO (TJSJ). Times as HH:MM, same day. Fuel +/-: enter a minus if you burned more than planned on the leg into this stop; enter a plus for fuel added at this stop (it replaces the automatic uplift). APG takeoff and landing limits apply automatically once conditions are entered for a leg; a typed max weight applies as well, and the lower one holds. Removing a stop moves its cargo to the next stop; check the cargo tab afterward.</p>';
