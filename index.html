@@ -238,6 +238,12 @@ li.al.info{border-left-color:var(--tide)}
 .ph .k.pln,.pz td.pln{background:var(--caution-soft);box-shadow:inset 0 0 0 1px var(--caution)}
 .ph .k.act{box-shadow:inset 0 0 0 1px var(--tide)}
 .ph .k input[type=text],.ph .k input[type=number]{font:inherit;font-size:clamp(28px,5.6vh,46px);font-weight:700;width:100%;background:transparent;border:0;color:inherit;text-align:right;min-width:0}
+.ph .k.ti,.ph .k.ti .cf{display:block}
+.ph .k.ti .l{display:block;margin-bottom:2px}
+.ph .k.ti input[type=text],.ph .k.ti input[type=number]{display:block;width:100%;text-align:right;font-size:clamp(28px,5.6vh,46px)}
+.ph .k.ti select{display:block;width:100%;font-size:clamp(20px,3.4vh,28px);font-weight:700;min-height:44px;margin:4px 0}
+.ph .k.ti .s{margin-top:2px}
+.ph .k input::placeholder{font-size:15px;font-weight:400;color:var(--muted)}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
 .btnrow button{font:600 15px var(--f-body);padding:12px 14px;border-radius:10px;border:1px solid var(--tide);background:var(--tide-soft);color:inherit;min-height:44px}
 .btnrow button.on{background:var(--tide);color:#fff}
@@ -285,7 +291,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 14:40 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 14:48 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -1004,8 +1010,31 @@ function plannedFlog(trip,legs,opts){
     out.legs.push(p)});
   out.totals={block:flogRound1(out.legs.reduce(function(s,p){return s+p.block},0)),flight:flogRound1(out.legs.reduce(function(s,p){return s+p.flight},0)),burn:out.legs.reduce(function(s,p){return s+p.burn},0),upGal:out.legs.reduce(function(s,p){return s+(p.upGal||0)},0),postGal:out.legs.reduce(function(s,p){return s+(p.postGal||0)},0)};
   return out}
+
+// Crew flight time, duty time and aircraft hours (bottom sections of the post-flight log).
+// legIn[i] = {pf:'PIC'|'SIC', appr:'ILS'|'RNAV'|'LOC'|'VOR'|'NDB'|'VIS'|'', nt:'N'|'', inst:hours, nightH:hours}
+// PIC and SIC time are block time for that seat. Takeoffs, landings and approaches are credited to the pilot flying. Instrument and night hours are credited to both pilots.
+var FLOG_APP_P=['ILS'],FLOG_APP_NP=['RNAV','LOC','VOR','NDB','LDA','SDF'];
+function flogCrew(m,legIn,opts){
+ opts=opts||{};legIn=legIn||[];
+ function blank(){return {pic:0,sic:0,inst:0,night:0,appP:0,appNP:0,toD:0,toN:0,ldD:0,ldN:0}}
+ var rows={PIC:blank(),SIC:blank()};
+ m.legs.forEach(function(p,i){var l=legIn[i]||{},b=p.block||0;
+  rows.PIC.pic+=b;rows.SIC.sic+=b;
+  ['PIC','SIC'].forEach(function(r){rows[r].inst+=(+l.inst||0);rows[r].night+=(+l.nightH||0)});
+  var r=rows[l.pf];if(r){if(l.nt==='N'){r.toN++;r.ldN++}else{r.toD++;r.ldD++}
+   if(FLOG_APP_P.indexOf(l.appr)>=0)r.appP++;else if(FLOG_APP_NP.indexOf(l.appr)>=0)r.appNP++}});
+ ['PIC','SIC'].forEach(function(k){['pic','sic','inst','night'].forEach(function(f){rows[k][f]=flogRound1(rows[k][f])})});
+ // Duty: on duty entered (Zulu); off duty planned as the last block in plus 30 minutes unless entered.
+ var last=m.legs.length?m.legs[m.legs.length-1].inZ:'',off=opts.offDuty||(last?flogHM(flogMins(last)+30):''),on=opts.onDuty||'';
+ var dm=(on&&off)?((flogMins(off)-flogMins(on))%1440+1440)%1440:null;
+ var duty={on:on,off:off,offPlanned:!opts.offDuty,time:dm==null?'':('0'+Math.floor(dm/60)).slice(-2)+':'+('0'+(dm%60)).slice(-2)};
+ // Aircraft: hours = Hobbs (flight) total, cycles = legs flown.
+ var pr=opts.prior||{},hrs=m.totals.flight,cyc=m.legs.length;
+ function row(h,c){return {prH:h==null?null:+h,prC:c==null?null:+c,trH:hrs,trC:cyc,toH:h==null?null:flogRound1(+h+hrs),toC:c==null?null:+c+cyc}}
+ return {rows:rows,duty:duty,craft:{airframe:row(pr.afHrs,pr.afCyc),eng1:row(pr.e1Hrs,pr.e1Cyc),eng2:row(pr.e2Hrs,pr.e2Cyc)}}}
 //FLOG-END
-if(typeof module!='undefined')module.exports={flogLeg:flogLeg,plannedFlog:plannedFlog,flogZulu:flogZulu,flogHM:flogHM};
+if(typeof module!='undefined')module.exports={flogCrew:flogCrew,flogLeg:flogLeg,plannedFlog:plannedFlog,flogZulu:flogZulu,flogHM:flogHM};
 
 //FT-START
 // Automatic block / takeoff / landing / block-in times from GPS samples. Pure logic: the page feeds samples and answers prompts.
@@ -1250,26 +1279,31 @@ function flModel(){
 function flF1(x){return x==null?'':(Math.round(x*10)/10).toFixed(1)}
 // ---- cockpit page 7 ----
 function flTile(f,label,val,isAct,sub,mode){
- return '<div class="k '+(isAct?'act':'pln')+'"><label class="cf"><span class="l">'+label+'</span><input data-c="flog:'+f+'" type="'+(mode||'text')+'" inputmode="'+(mode?'decimal':'numeric')+'" '+(mode?'step="any"':'placeholder="HH:MM" maxlength="5"')+' value="'+esc(val==null?'':val)+'"></label><div class="s">'+sub+'</div></div>'}
+ return '<div class="k ti '+(isAct?'act':'pln')+'"><label class="cf"><span class="l">'+label+'</span><input data-c="flog:'+f+'" type="'+(mode||'text')+'" inputmode="'+(mode?'decimal':'numeric')+'" '+(mode?'step="any"':'placeholder="HH:MM" maxlength="5"')+' value="'+esc(val==null?'':val)+'"></label><div class="s">'+sub+'</div></div>'}
 function flStatus(){
  var code=state&&M&&curL()?curL().g.from:'',have=ST.stands&&ST.stands[code]&&ST.stands[code].length;
  var t=FLG.tr?'Tracking ON · '+FLG.tr.s.phase:'Tracking OFF';
  return t+(code?' · '+(have?'aircraft position marked at '+esc(code):'no aircraft position marked at '+esc(code)):'')+(FLG.msg?' · '+esc(FLG.msg):'')}
 function flPageHtml(L){
- var m=flModel(),p=m.legs[L.i],a=flActs()[L.i]||{},g=ST.glob||{};
+ var m=flModel(),p=m.legs[L.i],a=flActs()[L.i]||{},g=ST.glob||{},li=(ST.flog&&ST.flog[L.key])||{};
  var h='<div class="legline">Leg <b>'+(L.i+1)+'</b> of '+m.legs.length+' · '+esc(L.g.from)+' › '+esc(L.g.to)+' · Zulu</div>';
  h+='<div class="kv">'+
-  '<div class="k"><label class="cf"><span class="l">Trip number</span><input data-c="glob:tripNo" type="text" value="'+esc(state.tripNo||g.tripNo||'')+'" placeholder="from the itinerary"></label><div class="s">'+(state.booking?'booking #'+esc(state.booking):'pulled from the trip documents when pasted')+'</div></div>'+
+  '<div class="k ti"><label class="cf"><span class="l">Trip number</span><input data-c="glob:tripNo" type="text" value="'+esc(state.tripNo||g.tripNo||'')+'" placeholder="from the itinerary"></label><div class="s">'+(state.booking?'booking #'+esc(state.booking):'pulled from the trip documents when pasted')+'</div></div>'+
   flTile('outZ','Block out',p.outZ,!!a.outZ,a.outZ?'actual':'planned · enter or confirm')+
   flTile('offZ','Takeoff',p.offZ,!!a.offZ,a.offZ?'actual':'planned')+
   flTile('onZ','Landing',p.onZ,!!a.onZ,a.onZ?'actual':'planned')+
   flTile('inZ','Block in',p.inZ,!!a.inZ,a.inZ?'actual':'planned')+
-  K('Block · flight (hr)',flF1(p.block)+' · '+flF1(p.flight),a.block!=null?'from entered times':'planned')+
+  K('Block (hr)',flF1(p.block),a.block!=null?'from entered times':'planned')+K('Flight (hr)',flF1(p.flight),a.flight!=null?'from entered times':'planned')+
   flTile('hobbsOut','Hobbs out',p.hobbsOut,a.hobbsOut!=null,p.hobbsIn!=null?'in '+flF1(p.hobbsIn)+(a.hobbsOut!=null?'':' · planned'):'enter Hobbs at start (leg 1)','number')+
   flTile('fuelStart','Fuel start (lb)',Math.round(p.fuelStart),a.fuelStart!=null,'end '+f0(p.fuelEnd)+' lb · planned burn '+f0(p.burn),'number')+
   flTile('burn','Fuel burn (lb)',Math.round(p.burn),a.burn!=null,a.burn!=null?'actual':'planned','number')+
   flTile('upGal','Pre-flight uplift (gal)',p.upGal,a.upGal!=null,a.upGal!=null?'actual · at '+esc(L.g.from):(p.upGal==null?'enter gallons added before this flight':'planned · fuel start less last landing fuel'),'number')+
   flTile('postGal','Post-flight uplift (gal)',p.postGal||0,a.postGal!=null,'fuel added after landing at '+esc(L.g.to)+' · rarely used','number')+
+  flSelTile('pf','Pilot flying',[['','—'],['PIC','PIC'],['SIC','SIC']],li.pf,'takeoff, landing and approach credit')+
+  flSelTile('appr','Approach',[['','None'],['VIS','Visual'],['ILS','ILS (precision)'],['RNAV','RNAV'],['LOC','LOC'],['VOR','VOR'],['NDB','NDB']],li.appr,'precision counts for ILS')+
+  flSelTile('nt','Takeoff and landing',[['','Day'],['N','Night']],li.nt,'counts as day or night')+
+  flTile('inst','Instrument time (hr)',li.inst,li.inst!=null&&li.inst!=='','both pilots','number')+
+  flTile('nightH','Night time (hr)',li.nightH,li.nightH!=null&&li.nightH!=='','both pilots','number')+
   '</div>'+
   '<div class="btnrow"><button type="button" data-fl="confirm">Confirm planned as flown</button></div>'+
   '<div class="btnrow"><button type="button" data-fl="track" class="'+(FLG.tr?'on':'')+'">'+(FLG.tr?'Stop tracking':'Track times by location')+'</button>'+
@@ -1277,6 +1311,51 @@ function flPageHtml(L){
   '<div class="cmt">'+flStatus()+'</div>'+
   '<div class="foot">Out, Off, On and In follow the JetLogistics post-flight log. Highlighted boxes are planned values, not yet entered or confirmed. Typed values replace them. Location tracking works only while this page is visible (use Split View beside ForeFlight) and within 2 km of an airport, in the 30 minutes around the proposed takeoff.</div>';
  return h}
+
+function flSelTile(f,label,opts,val,sub){
+ var set=val!=null&&val!=='';
+ return '<div class="k ti '+(set?'act':'pln')+'">'+SEL('flog:'+f,label,opts,val==null?'':val)+'<div class="s">'+sub+(set?'':' · not set')+'</div></div>'}
+function flLegIn(){return M.legs.map(function(L){var o=(ST.flog&&ST.flog[L.key])||{};return {pf:o.pf||'',appr:o.appr||'',nt:o.nt||'',inst:o.inst,nightH:o.nightH}})}
+function flGNum(k){var g=ST.glob||{};return g[k]===''||g[k]==null||isNaN(+g[k])?null:+g[k]}
+function flCrewModel(){var g=ST.glob||{},m=flModel();
+ return {m:m,c:flogCrew(m,flLegIn(),{onDuty:/^\d\d:\d\d$/.test(g.onDuty||'')?g.onDuty:'',offDuty:/^\d\d:\d\d$/.test(g.offDuty||'')?g.offDuty:'',
+  prior:{afHrs:flGNum('afHrs')==null?(g.hobbsPrior===''||g.hobbsPrior==null?null:+g.hobbsPrior):flGNum('afHrs'),afCyc:flGNum('afCyc'),e1Hrs:flGNum('e1Hrs'),e1Cyc:flGNum('e1Cyc'),e2Hrs:flGNum('e2Hrs'),e2Cyc:flGNum('e2Cyc')}})}}
+function flCrewTables(cm){
+ var g=ST.glob||{},c=cm.c;
+ var h='<h3 class="subh">Crew flight time</h3><table><tr><th></th><th class="n">PIC</th><th class="n">SIC</th><th class="n">Inst</th><th class="n">Night</th><th class="n">Appr (p)</th><th class="n">Appr (np)</th><th class="n">T/O day</th><th class="n">T/O night</th><th class="n">Ldg day</th><th class="n">Ldg night</th></tr>';
+ [['PIC',g.pic||'PIC'],['SIC',g.sic||'SIC']].forEach(function(x){var r=c.rows[x[0]];
+  h+='<tr><td>'+esc(x[1])+'</td><td class="n">'+flF1(r.pic)+'</td><td class="n">'+flF1(r.sic)+'</td><td class="n">'+flF1(r.inst)+'</td><td class="n">'+flF1(r.night)+'</td><td class="n">'+r.appP+'</td><td class="n">'+r.appNP+'</td><td class="n">'+r.toD+'</td><td class="n">'+r.toN+'</td><td class="n">'+r.ldD+'</td><td class="n">'+r.ldN+'</td></tr>'});
+ h+='</table><h3 class="subh">Crew duty time (Zulu)</h3><table><tr><th></th><th>On duty</th><th>Off duty</th><th class="n">Duty time</th></tr>';
+ [g.pic||'PIC',g.sic||'SIC'].forEach(function(nm){h+='<tr><td>'+esc(nm)+'</td><td'+(c.duty.on?'':' class="pln"')+'>'+(c.duty.on||'enter')+'</td><td'+(c.duty.offPlanned?' class="pln"':'')+'>'+(c.duty.off||'—')+'</td><td class="n">'+(c.duty.time||'—')+'</td></tr>'});
+ h+='</table><h3 class="subh">Airframe and engine hours and cycles</h3><table><tr><th></th><th class="n">Airframe hrs</th><th class="n">Cycles</th><th class="n">Engine 1 hrs</th><th class="n">Cycles</th><th class="n">Engine 2 hrs</th><th class="n">Cycles</th></tr>';
+ function line(label,f,c1){return '<tr><td>'+label+'</td>'+['airframe','eng1','eng2'].map(function(k){var r=c.craft[k];return '<td class="n">'+(r[f+'H']==null?'—':flF1(r[f+'H']))+'</td><td class="n">'+(r[f+'C']==null?'—':r[f+'C'])+'</td>'}).join('')+'</tr>'}
+ h+=line('Prior','pr')+line('This trip','tr')+line('Total','to')+'</table>';
+ return h}
+function flCrewPageHtml(){
+ var g=ST.glob||{},cm=flCrewModel(),c=cm.c;
+ function gt(f,label,val,sub,mode,ph){return '<div class="k ti '+(val!==''&&val!=null?'act':'pln')+'"><label class="cf"><span class="l">'+label+'</span><input data-c="glob:'+f+'" type="'+(mode||'text')+'" '+(mode?'inputmode="decimal" step="any"':'placeholder="'+(ph||'')+'" maxlength="5"')+' value="'+esc(val==null?'':val)+'"></label><div class="s">'+sub+'</div></div>'}
+ var h='<div class="kv">'+
+  '<div class="k ti"><label class="cf"><span class="l">PIC name</span><input data-c="glob:pic" type="text" value="'+esc(g.pic||'')+'" placeholder="PIC"></label><div class="s">kept on this device only</div></div>'+
+  '<div class="k ti"><label class="cf"><span class="l">SIC name</span><input data-c="glob:sic" type="text" value="'+esc(g.sic||'')+'" placeholder="SIC"></label><div class="s">kept on this device only</div></div>'+
+  gt('onDuty','On duty (Z)',g.onDuty||'','HH:MM Zulu',null,'HH:MM')+
+  gt('offDuty','Off duty (Z)',g.offDuty||c.duty.off,c.duty.offPlanned?'planned: last block in + 30 min':'entered',null,'HH:MM')+
+  K('Duty time',c.duty.time||'—',c.duty.on?'on duty to off duty':'enter on duty')+
+  gt('afHrs','Airframe hours, prior',g.afHrs!=null&&g.afHrs!==''?g.afHrs:(g.hobbsPrior||''),'= Hobbs out on leg 1','number')+
+  gt('afCyc','Airframe cycles, prior',g.afCyc,'','number')+
+  gt('e1Hrs','Engine 1 hours, prior',g.e1Hrs,'','number')+gt('e1Cyc','Engine 1 cycles, prior',g.e1Cyc,'','number')+
+  gt('e2Hrs','Engine 2 hours, prior',g.e2Hrs,'','number')+gt('e2Cyc','Engine 2 cycles, prior',g.e2Cyc,'','number')+
+  K('This trip',flF1(c.craft.airframe.trH)+' hr · '+c.craft.airframe.trC+' cycles','Hobbs total and legs flown')+
+  K('Airframe total',c.craft.airframe.toH==null?'—':flF1(c.craft.airframe.toH)+' · '+c.craft.airframe.toC,'hours · cycles')+
+  K('Engine 1 total',c.craft.eng1.toH==null?'—':flF1(c.craft.eng1.toH)+' · '+c.craft.eng1.toC,'hours · cycles')+
+  K('Engine 2 total',c.craft.eng2.toH==null?'—':flF1(c.craft.eng2.toH)+' · '+c.craft.eng2.toC,'hours · cycles')+'</div>'+
+  '<div class="btnrow"><button type="button" data-fl="roll">Use totals as next trip\'s prior</button></div>'+
+  '<div class="foot">PIC and SIC time are block time for each seat. Takeoffs, landings and approaches go to the pilot flying set on the Flight log page. Instrument and night hours count for both pilots. Hours and cycles total from the Hobbs flight time and the legs flown. Names and hours stay on this device.</div>';
+ return h}
+function flRoll(){var cm=flCrewModel(),c=cm.c.craft;ST.glob=ST.glob||{};
+ if(c.airframe.toH!=null){ST.glob.afHrs=c.airframe.toH;ST.glob.afCyc=c.airframe.toC;ST.glob.hobbsPrior=c.airframe.toH}
+ if(c.eng1.toH!=null){ST.glob.e1Hrs=c.eng1.toH;ST.glob.e1Cyc=c.eng1.toC}
+ if(c.eng2.toH!=null){ST.glob.e2Hrs=c.eng2.toH;ST.glob.e2Cyc=c.eng2.toC}
+ ST.glob.onDuty='';ST.glob.offDuty='';save();renderAll()}
 // ---- edit view table ----
 function flRender(){
  var el=$('flog');if(!el||!state||!M)return;
@@ -1287,7 +1366,7 @@ function flRender(){
    c(flF1(p.block),a.block!=null,'n')+c(flF1(p.flight),a.flight!=null,'n')+c(p.hobbsOut!=null?flF1(p.hobbsOut)+' / '+flF1(p.hobbsIn):'—',a.hobbsOut!=null,'n')+
    c(f0(p.fuelStart),a.fuelStart!=null,'n')+c(f0(p.burn),a.burn!=null,'n')+c(f0(p.fuelEnd),a.fuelStart!=null||a.burn!=null,'n')+c((p.upGal==null?'—':f0(p.upGal))+' / '+f0(p.postGal||0),a.upGal!=null||a.postGal!=null,'n')+'</tr>'});
  h+='<tr class="tot"><td colspan="7">Totals · all times Zulu</td><td class="n">'+flF1(m.totals.block)+'</td><td class="n">'+flF1(m.totals.flight)+'</td><td></td><td></td><td class="n">'+f0(m.totals.burn)+'</td><td></td><td class="n">'+f0(m.totals.upGal)+' / '+f0(m.totals.postGal||0)+'</td></tr></table>';
- el.innerHTML=h;
+ el.innerHTML=h+flCrewTables(flCrewModel());
  var n=$('flogn');if(n)n.textContent='Trip '+(m.no||'(not entered)')+' · '+m.date+'. Shaded cells are planned; enter actuals on the cockpit Flight log page.'}
 // ---- tracking ----
 function flStands(code){return (ST.stands&&ST.stands[code]||[]).map(function(x){return {kind:x.kind,lat:x.lat,lon:x.lon}})}
@@ -1352,7 +1431,7 @@ function flConfirm(){
  if((o.upGal==null||o.upGal==='')&&p.upGal!=null)o.upGal=p.upGal;if(o.postGal==null||o.postGal==='')o.postGal=p.postGal||0;
  save();renderAll()}
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button[data-fl]');if(!b)return;var k=b.getAttribute('data-fl');
- if(k==='track'){if(FLG.tr)flStop();else flStart()}else if(k==='park'||k==='load')flMark(k);else if(k==='confirm')flConfirm()});
+ if(k==='track'){if(FLG.tr)flStop();else flStart()}else if(k==='park'||k==='load')flMark(k);else if(k==='confirm')flConfirm();else if(k==='roll')flRoll()});
 // On reopening: resume tracking, or ask about an open flight.
 function flInit(){
  if(!ST.ft||!state||!M)return;var sv=ST.ft,L=M.legs.filter(function(x){return x.key===sv.key})[0];if(!L){ST.ft=null;return}
@@ -1770,7 +1849,7 @@ function toldRender(M){
 
 // ---------- Cockpit column ----------
 var PERF_PH='<div class="cmt" style="color:var(--caution)"><b>PLACEHOLDER · performance data not loaded.</b> Ground roll, accelerate-stop, landing roll, flap and weight corrections and wet-runway data from the AFM performance chapter are pending photos of the aircraft performance pages. Use the AFM until then.</div>';
-var PH=['Dispatch','Power settings','Takeoff','Climb · maneuvering','Landing speeds','Cargo · fuel','Flight log'],cpIdx=0;
+var PH=['Dispatch','Power settings','Takeoff','Climb · maneuvering','Landing speeds','Cargo · fuel','Flight log','Crew · hours'],cpIdx=0;
 function K(label,val,sub,cls,attrs){
  var v=val==null?'<div class="n err">—</div>':(typeof val==='object'?(val.error?'<div class="n err">'+esc(val.error)+'</div>':'<div class="n">'+val.value+'</div>'):'<div class="n'+(String(val).length>6?' sm':'')+'">'+esc(val)+'</div>');
  return '<div class="k '+(cls||'')+(attrs?' apgl':'')+'"'+(attrs?' data-apg="'+attrs+'" role="button" tabindex="0"':'')+'><div class="l">'+label+'</div>'+v+(sub?'<div class="s">'+sub+'</div>':'')+'</div>'}
@@ -1855,6 +1934,7 @@ function renderCockpit(){
   '<div class="cmt"><b>On at '+esc(g.from)+':</b> '+lst(onH)+'<br><b>Off at '+esc(g.from)+':</b> '+lst(offH)+'<br><b>Off at '+esc(g.to)+':</b> '+lst(offA)+'</div>'+
   '<div class="foot">Pounds from the airway bills (kg × 2.20462). Fuel uplift is shown only when fuel is needed. The cargo center is the arm of all cargo aboard, rounded to 10 in.</div>');
  h.push(head(6)+flPageHtml(L));
+ h.push(head(7)+flCrewPageHtml());
  var focus=document.activeElement&&cp.contains(document.activeElement)&&document.activeElement.tagName==='INPUT';
  if(focus)return;
  $('phases').innerHTML=h.map(function(x,i){return '<section class="ph" data-i="'+i+'" aria-label="'+PH[i]+'">'+x+'</section>'}).join('');
