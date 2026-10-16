@@ -1,0 +1,60 @@
+# Signed build uploaded to TestFlight. Run by hand from the Actions tab. UNTESTED until the Apple secrets exist.
+# Needs these repository secrets (Settings > Secrets and variables > Actions):
+#   APPLE_TEAM_ID        10-character Team ID (developer.apple.com > Membership details)
+#   ASC_ISSUER_ID        App Store Connect > Users and Access > Integrations > App Store Connect API: Issuer ID
+#   ASC_KEY_ID           the Key ID of the API key
+#   ASC_KEY_P8           the full text of the downloaded AuthKey_XXXX.p8 file
+# Also needs an app record in App Store Connect with bundle id com.sherpaware.n282bt.
+name: ios-testflight
+on: { workflow_dispatch: {} }
+jobs:
+  testflight:
+    if: github.repository == 'Sherpaware/SherpaWare'
+    runs-on: macos-latest
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+      KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Check secrets are present
+        run: |
+          for v in TEAM_ID ISSUER KEY_ID KEY_P8; do if [ -z "${!v}" ]; then echo "missing secret for $v"; exit 1; fi; done
+      - name: Write the API key to disk (never printed)
+        run: |
+          mkdir -p "$HOME/private_keys"
+          printf '%s\n' "$KEY_P8" > "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
+      - name: Install Capacitor and add the iOS project
+        working-directory: native
+        run: |
+          npm install
+          python3 scripts/prepare_web.py
+          npx cap add ios
+          python3 scripts/patch_ios.py
+          npx cap sync ios
+      - name: Archive (signed)
+        working-directory: native/ios/App
+        run: |
+          set -o pipefail
+          if [ -d App.xcworkspace ]; then T="-workspace App.xcworkspace"; else T="-project App.xcodeproj"; fi
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_${KEY_ID}.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER"
+          xcodebuild $T -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" MARKETING_VERSION=0.1.0 $AUTH archive | tail -30
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" $AUTH | tail -30
+      - name: Remove the key
+        if: always()
+        run: rm -f "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
