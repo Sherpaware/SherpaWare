@@ -285,7 +285,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 14:33 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 14:40 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -992,15 +992,17 @@ function flogLeg(planLeg,act,opts){
 function plannedFlog(trip,legs,opts){
   opts=opts||{};var acts=opts.acts||[],out={no:trip.tripNo||'',date:trip.date||'',pic:trip.pic||'',sic:trip.sic||'',aircraft:trip.aircraft||'',customer:trip.customer||'',legs:[]};
   var hobbs=opts.hobbsPrior;
-  var prevEnd=null;
+  var prevEnd=null,prevPost=0;
   legs.forEach(function(L,i){var a=acts[i]||{};
     if(a.hobbsOut==null&&hobbs!=null)a=Object.assign({},a,{hobbsOut:hobbs});
     var p=flogLeg(L,a,{dens:opts.dens,gnd0:opts.gnd0,gnd:opts.gnd});
-    if(p.upGal==null)p.upGal=prevEnd==null?null:Math.max(0,Math.round((p.fuelStart-prevEnd)/(opts.dens||6.5)));
-    prevEnd=p.fuelEnd;
+    // Pre-flight uplift = fuel start less the last leg's end fuel and any post-flight uplift taken after that landing.
+    if(p.upGal==null)p.upGal=prevEnd==null?null:Math.max(0,Math.round((p.fuelStart-prevEnd-prevPost*(opts.dens||6.5))/(opts.dens||6.5)));
+    p.postGal=a.postGal!=null?+a.postGal:0;
+    prevEnd=p.fuelEnd;prevPost=p.postGal;
     if(p.hobbsIn!=null)hobbs=p.hobbsIn;
     out.legs.push(p)});
-  out.totals={block:flogRound1(out.legs.reduce(function(s,p){return s+p.block},0)),flight:flogRound1(out.legs.reduce(function(s,p){return s+p.flight},0)),burn:out.legs.reduce(function(s,p){return s+p.burn},0),upGal:out.legs.reduce(function(s,p){return s+(p.upGal||0)},0)};
+  out.totals={block:flogRound1(out.legs.reduce(function(s,p){return s+p.block},0)),flight:flogRound1(out.legs.reduce(function(s,p){return s+p.flight},0)),burn:out.legs.reduce(function(s,p){return s+p.burn},0),upGal:out.legs.reduce(function(s,p){return s+(p.upGal||0)},0),postGal:out.legs.reduce(function(s,p){return s+(p.postGal||0)},0)};
   return out}
 //FLOG-END
 if(typeof module!='undefined')module.exports={flogLeg:flogLeg,plannedFlog:plannedFlog,flogZulu:flogZulu,flogHM:flogHM};
@@ -1225,7 +1227,7 @@ if (typeof module !== "undefined") module.exports = SW;
 </script>
 <script>//FLUI-START
 // Flight log page and automatic block / takeoff / landing recording. Loaded before app.js; uses app globals at call time.
-// Actual times per leg live in ST.flog[legKey] (outZ, offZ, onZ, inZ, hobbsOut, fuelStart, burn, upGal, pax). Planned values show highlighted until an actual is entered.
+// Actual times per leg live in ST.flog[legKey] (outZ, offZ, onZ, inZ, hobbsOut, fuelStart, burn, upGal, postGal, pax). Planned values show highlighted until an actual is entered.
 // Parking and load positions live in ST.stands[airportCode] (kept on this device only, carried to the next flying day).
 var FLG={tr:null,watch:null,last:null,timer:null,key:null,leg:0,msg:'',queue:[],asking:false,wl:null};
 function flZ(ms){var d=new Date(ms);return ('0'+d.getUTCHours()).slice(-2)+':'+('0'+d.getUTCMinutes()).slice(-2)}
@@ -1237,7 +1239,7 @@ function flDiffH(a,b){var d=flTimeMin(b)-flTimeMin(a);if(d<0)d+=1440;return Math
 function flActs(){
  return M.legs.map(function(L){var o=(ST.flog&&ST.flog[L.key])||{},a={};
   ['outZ','offZ','onZ','inZ'].forEach(function(k){if(/^\d\d:\d\d$/.test(o[k]||''))a[k]=o[k]});
-  ['block','flight','fuelStart','burn','upGal','pax','hobbsOut'].forEach(function(k){if(o[k]!==''&&o[k]!=null&&!isNaN(+o[k]))a[k]=+o[k]});
+  ['block','flight','fuelStart','burn','upGal','postGal','pax','hobbsOut'].forEach(function(k){if(o[k]!==''&&o[k]!=null&&!isNaN(+o[k]))a[k]=+o[k]});
   if(a.outZ&&a.inZ&&a.block==null)a.block=flDiffH(a.outZ,a.inZ);
   if(a.offZ&&a.onZ&&a.flight==null)a.flight=flDiffH(a.offZ,a.onZ);
   return a})}
@@ -1266,7 +1268,8 @@ function flPageHtml(L){
   flTile('hobbsOut','Hobbs out',p.hobbsOut,a.hobbsOut!=null,p.hobbsIn!=null?'in '+flF1(p.hobbsIn)+(a.hobbsOut!=null?'':' · planned'):'enter Hobbs at start (leg 1)','number')+
   flTile('fuelStart','Fuel start (lb)',Math.round(p.fuelStart),a.fuelStart!=null,'end '+f0(p.fuelEnd)+' lb · planned burn '+f0(p.burn),'number')+
   flTile('burn','Fuel burn (lb)',Math.round(p.burn),a.burn!=null,a.burn!=null?'actual':'planned','number')+
-  K('Gallons uplifted',p.upGal==null?'—':f0(p.upGal),'at '+esc(L.g.from)+' · fuel start less the last leg end')+
+  flTile('upGal','Pre-flight uplift (gal)',p.upGal,a.upGal!=null,a.upGal!=null?'actual · at '+esc(L.g.from):(p.upGal==null?'enter gallons added before this flight':'planned · fuel start less last landing fuel'),'number')+
+  flTile('postGal','Post-flight uplift (gal)',p.postGal||0,a.postGal!=null,'fuel added after landing at '+esc(L.g.to)+' · rarely used','number')+
   '</div>'+
   '<div class="btnrow"><button type="button" data-fl="confirm">Confirm planned as flown</button></div>'+
   '<div class="btnrow"><button type="button" data-fl="track" class="'+(FLG.tr?'on':'')+'">'+(FLG.tr?'Stop tracking':'Track times by location')+'</button>'+
@@ -1277,13 +1280,13 @@ function flPageHtml(L){
 // ---- edit view table ----
 function flRender(){
  var el=$('flog');if(!el||!state||!M)return;
- var m=flModel(),acts=flActs(),h='<table><tr><th>Leg</th><th>From</th><th>To</th><th>Out</th><th>Off</th><th>On</th><th>In</th><th class="n">Block</th><th class="n">Flight</th><th class="n">Hobbs out / in</th><th class="n">Fuel start</th><th class="n">Burn</th><th class="n">End</th><th class="n">Gal up</th></tr>';
+ var m=flModel(),acts=flActs(),h='<table><tr><th>Leg</th><th>From</th><th>To</th><th>Out</th><th>Off</th><th>On</th><th>In</th><th class="n">Block</th><th class="n">Flight</th><th class="n">Hobbs out / in</th><th class="n">Fuel start</th><th class="n">Burn</th><th class="n">End</th><th class="n">Gal pre / post</th></tr>';
  function c(v,act,cls){return '<td class="'+(cls||'')+(act?'':' pln')+'">'+v+'</td>'}
  m.legs.forEach(function(p,i){var a=acts[i]||{};
   h+='<tr><td>'+p.n+'</td><td>'+esc(p.from)+'</td><td>'+esc(p.to)+'</td>'+c(p.outZ,!!a.outZ)+c(p.offZ,!!a.offZ)+c(p.onZ,!!a.onZ)+c(p.inZ,!!a.inZ)+
    c(flF1(p.block),a.block!=null,'n')+c(flF1(p.flight),a.flight!=null,'n')+c(p.hobbsOut!=null?flF1(p.hobbsOut)+' / '+flF1(p.hobbsIn):'—',a.hobbsOut!=null,'n')+
-   c(f0(p.fuelStart),a.fuelStart!=null,'n')+c(f0(p.burn),a.burn!=null,'n')+c(f0(p.fuelEnd),a.fuelStart!=null||a.burn!=null,'n')+c(p.upGal==null?'—':f0(p.upGal),a.upGal!=null,'n')+'</tr>'});
- h+='<tr class="tot"><td colspan="7">Totals · all times Zulu</td><td class="n">'+flF1(m.totals.block)+'</td><td class="n">'+flF1(m.totals.flight)+'</td><td></td><td></td><td class="n">'+f0(m.totals.burn)+'</td><td></td><td class="n">'+f0(m.totals.upGal)+'</td></tr></table>';
+   c(f0(p.fuelStart),a.fuelStart!=null,'n')+c(f0(p.burn),a.burn!=null,'n')+c(f0(p.fuelEnd),a.fuelStart!=null||a.burn!=null,'n')+c((p.upGal==null?'—':f0(p.upGal))+' / '+f0(p.postGal||0),a.upGal!=null||a.postGal!=null,'n')+'</tr>'});
+ h+='<tr class="tot"><td colspan="7">Totals · all times Zulu</td><td class="n">'+flF1(m.totals.block)+'</td><td class="n">'+flF1(m.totals.flight)+'</td><td></td><td></td><td class="n">'+f0(m.totals.burn)+'</td><td></td><td class="n">'+f0(m.totals.upGal)+' / '+f0(m.totals.postGal||0)+'</td></tr></table>';
  el.innerHTML=h;
  var n=$('flogn');if(n)n.textContent='Trip '+(m.no||'(not entered)')+' · '+m.date+'. Shaded cells are planned; enter actuals on the cockpit Flight log page.'}
 // ---- tracking ----
@@ -1346,6 +1349,7 @@ function flConfirm(){
  ['outZ','offZ','onZ','inZ'].forEach(function(k){if(!o[k]&&p[k])o[k]=p[k]});
  if(o.fuelStart==null||o.fuelStart==='')o.fuelStart=Math.round(p.fuelStart);if(o.burn==null||o.burn==='')o.burn=Math.round(p.burn);
  if((o.hobbsOut==null||o.hobbsOut==='')&&p.hobbsOut!=null)o.hobbsOut=p.hobbsOut;
+ if((o.upGal==null||o.upGal==='')&&p.upGal!=null)o.upGal=p.upGal;if(o.postGal==null||o.postGal==='')o.postGal=p.postGal||0;
  save();renderAll()}
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('button[data-fl]');if(!b)return;var k=b.getAttribute('data-fl');
  if(k==='track'){if(FLG.tr)flStop();else flStart()}else if(k==='park'||k==='load')flMark(k);else if(k==='confirm')flConfirm()});

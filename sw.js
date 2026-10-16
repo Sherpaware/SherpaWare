@@ -1,5 +1,5 @@
-// SherpaWare service worker (version d0a0a1ec6d)
-var CACHE='sherpaware-d0a0a1ec6d';
+// SherpaWare service worker (version df04d21d94)
+var CACHE='sherpaware-df04d21d94';
 var CORE=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png','icon-180.png'];
 self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(CORE)}).then(function(){return self.skipWaiting()}))});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==CACHE&&k.indexOf('sherpaware-')===0}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});
