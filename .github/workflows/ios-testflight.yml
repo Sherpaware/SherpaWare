@@ -42,8 +42,10 @@ jobs:
           set -o pipefail
           if [ -d App.xcworkspace ]; then T="-workspace App.xcworkspace"; else T="-project App.xcodeproj"; fi
           AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/private_keys/AuthKey_${KEY_ID}.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER"
+          # Archive unsigned; Apple cloud-signs at export (Admin API key, no local certificate needed).
           xcodebuild $T -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" MARKETING_VERSION=0.1.0 $AUTH archive | tail -30
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" MARKETING_VERSION=0.1.0 archive | tail -40
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PL
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -54,7 +56,7 @@ jobs:
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           PL
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" $AUTH | tail -30
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" $AUTH | tail -60
       - name: Remove the key
         if: always()
         run: rm -f "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
