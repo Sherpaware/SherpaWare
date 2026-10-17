@@ -213,6 +213,12 @@ li.al.train{background:#fff3a3;color:#1a1a1a;border-left:6px solid var(--caution
 .k .n.sm{font-size:clamp(20px,7vw,28px)}
 .k .s{font-size:12px;color:var(--muted)}
 html,body{touch-action:manipulation}
+#kp{position:fixed;left:0;right:0;bottom:0;z-index:9990;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));background:var(--paper);border-top:2px solid var(--rule);box-shadow:0 -4px 14px rgba(0,0,0,.25)}
+#kp[hidden]{display:none}
+#kp button{font:600 28px var(--f-num);height:58px;border:2px solid var(--rule);border-radius:8px;background:var(--card);color:inherit}
+#kp button.z{grid-column:1 / span 2}#kp button.dn{grid-column:3 / span 2;background:var(--rule);color:var(--paper);font:700 20px var(--f-label);letter-spacing:.08em;text-transform:uppercase}
+#kp button[data-k=clr]{font:700 16px var(--f-label);letter-spacing:.06em;text-transform:uppercase}
+body.kpopen .ph{padding-bottom:330px}
 #zoomFit{position:fixed;left:0;top:0;z-index:9999;transform-origin:0 0;font:700 15px var(--f-label);letter-spacing:.06em;text-transform:uppercase;padding:10px 14px;border:2px solid var(--rule);border-radius:6px;background:#ffe066;color:#1a1a1a;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .shrow{display:flex;gap:4px;align-items:center}.shrow .fs{font:700 clamp(22px,7vw,34px) var(--f-num);color:inherit;padding:0 4px;border-radius:3px}.shrow input{font:700 clamp(22px,7vw,34px) var(--f-num);padding:0 4px;border:0;border-radius:3px;background:transparent;color:inherit;text-align:left}.shgo{font:600 14px var(--f-label);letter-spacing:.06em;text-transform:uppercase;padding:10px 10px;border:2px solid var(--rule);border-radius:4px;background:var(--card);color:inherit}
 .ph .k.shk.hot .fs,.ph .k.shk.hot input{background:#ffe066;color:#1a1a1a}
@@ -315,7 +321,7 @@ html,body{touch-action:manipulation}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 15:00 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 15:22 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -463,6 +469,12 @@ html,body{touch-action:manipulation}
     <section class="panel" aria-labelledby="h-src"><h2 id="h-src">Sources and method</h2><ul class="src" id="src"></ul></section>
   </div>
 
+  <div id="kp" hidden aria-label="Number pad">
+    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="bs" aria-label="Backspace">⌫</button>
+    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="clr">Clear</button>
+    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="neg">±</button>
+    <button type="button" data-k="0" class="z">0</button><button type="button" data-k=".">.</button><button type="button" data-k="done" class="dn">Done</button>
+  </div>
   <button type="button" id="zoomFit" hidden aria-label="Fit to screen width">Fit width</button>
   <div id="cockpit" hidden role="dialog" aria-label="Cockpit view">
     <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
@@ -2111,7 +2123,7 @@ function K(label,val,sub,cls,attrs){
  var v=val==null?'<div class="n err">—</div>':(typeof val==='object'?(val.error?'<div class="n err">'+esc(val.error)+'</div>':'<div class="n">'+val.value+'</div>'):'<div class="n'+(String(val).length>6?' sm':'')+'">'+esc(val)+'</div>');
  return '<div class="k '+(cls||'')+(attrs?' apgl':'')+'"'+(attrs?' data-apg="'+attrs+'" role="button" tabindex="0"':'')+'><div class="l">'+label+'</div>'+v+(sub?'<div class="s">'+sub+'</div>':'')+'</div>'}
 function SEL(f,label,opts,val){return '<label class="cf"><span class="l">'+label+'</span><select data-c="'+f+'">'+opts.map(function(o){var v=Array.isArray(o)?o[0]:o,tx=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'"'+(String(v)===String(val)?' selected':'')+'>'+esc(tx)+'</option>'}).join('')+'</select></label>'}
-function NUM(f,label,val){return '<label class="cf"><span class="l">'+label+'</span><input data-c="'+f+'" type="number" inputmode="numeric" step="10" value="'+(val==null?'':Math.round(val))+'"'+(val==null?' placeholder="enter"':'')+'></label>'}
+function NUM(f,label,val){return '<label class="cf"><span class="l">'+label+'</span><input data-c="'+f+'" data-kp="1" type="text" inputmode="none" autocomplete="off" value="'+(val==null?'':Math.round(val))+'"'+(val==null?' placeholder="enter"':'')+'></label>'}
 function head(i){return '<div class="ph-h"><b>'+(i+1)+'</b><h3>'+PH[i]+'</h3></div>'}
 function renderCockpit(){
  var cp=$('cockpit');if(cp.hidden)return;
@@ -2129,7 +2141,7 @@ function renderCockpit(){
  var offHere=state.cargo.reduce(function(s,x){return s+(+x.off===L.i+1?(+x.kg||0)*KG:0)},0);
  var cgBad=g.flags.some(function(f){return /^CG out/.test(f)});
  var fuelTxt=g.i===0?'Fuel to '+fmt(g.ramp)+' ('+fmt(g.ramp/(+state.set.dens||6.5))+' gal)':(g.skip?'No fuel stop':'Uplift '+fmt(g.up)+' lb ('+fmt(g.up/(+state.set.dens||6.5))+' gal)');
- function OVT(key,leg,label,val,sub,ph,ovr){return '<div class="k ovt'+(ovr?' ovr':'')+'"><label class="cf"><span class="l">'+label+'</span><input data-ov="'+key+'" data-leg="'+leg+'" type="text" inputmode="decimal" value="'+(val==null||val===''?'':fmt(Math.round(val)))+'" placeholder="'+(ph||'')+'" aria-label="'+esc(String(label).replace(/<[^>]*>/g,' '))+'"></label><div class="s">'+sub+'</div></div>'}
+ function OVT(key,leg,label,val,sub,ph,ovr){return '<div class="k ovt'+(ovr?' ovr':'')+'"><label class="cf"><span class="l">'+label+'</span><input data-ov="'+key+'" data-kp="1" data-leg="'+leg+'" type="text" inputmode="none" autocomplete="off" value="'+(val==null||val===''?'':fmt(Math.round(val)))+'" placeholder="'+(ph||'')+'" aria-label="'+esc(String(label).replace(/<[^>]*>/g,' '))+'"></label><div class="s">'+sub+'</div></div>'}
  var ovm=function(k,l){return state[k]&&state[k][l]!=null&&state[k][l]!==''};
  var fobA=(ST.glob&&ST.glob.fob0!=null&&ST.glob.fob0!=='')?+ST.glob.fob0:null,sigA=(state.route||[]).map(function(r){return r.code}).join('-'),LLA=ST.glob&&ST.glob.lastLf,expA=(LLA&&LLA.sig!==sigA)?LLA.lf:null;
  var prevLf=L.i>0&&M.legs[L.i-1]?M.legs[L.i-1].g.lf:null;
@@ -2191,7 +2203,7 @@ function renderCockpit(){
   '<div class="k fz">'+NUM('glob:fob0','Actual fuel on board ·<br>before uplift (lb)',fob)+'<div class="cmt">Add to ramp '+fmt(g.ramp)+': <b>'+gal(Math.max(0,g.ramp-fob))+'</b>'+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):'')+'</div></div>'):
   (g.skip?K('Fuel uplift','NONE','Arrive '+esc(g.from)+' with '+fmt(g.ramp)+' lb, no uplift needed'):K('Fuel uplift',fmt(g.up),fmt(g.up/dn)+' gal added at '+esc(g.from)+' · ramp '+fmt(g.ramp)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''));
  var shT='';if(gn&&gn.cw>0&&(Math.abs(gn.dm||0)>0.5||gn.ctrOv!=null)){var cur=gn.cm/gn.cw,tgt=(gn.cm+gn.dm)/gn.cw,sugg=Math.round(tgt/10)*10,ov=gn.ctrOv!=null;
-  shT='<div class="k shk'+(ov?'':' hot')+'" data-init="'+sugg+'"><div class="l">'+(ov?'Cargo center<br>applied':'Move cargo<br>center to')+'</div><div class="shrow"><span class="fs">FS</span><input type="text" inputmode="decimal" id="shIn" data-leg="'+gn.i+'" value="'+Math.round(ov?gn.ctrOv:sugg)+'" aria-label="New cargo center station"><button type="button" class="shgo" data-shgo="'+gn.i+'">'+(ov?'Update':'Apply')+'</button>'+(ov?'<button type="button" class="shgo" data-shclr="'+gn.i+'">Clear</button>':'')+'</div><div class="s">'+(ov?'Plan now uses cargo center FS '+Math.round(gn.ctrOv)+' for leg '+(L.i+2)+'. Clear to return to the loaded positions.':'Now FS '+Math.round(cur/10)*10+' · '+(gn.dm>0?'shift aft':'shift forward')+' to restore the CG margin for leg '+(L.i+2)+'. Edit the station if you moved it differently, then Apply.')+'</div></div>'}
+  shT='<div class="k shk'+(ov?'':' hot')+'" data-init="'+sugg+'"><div class="l">'+(ov?'Cargo center<br>applied':'Move cargo<br>center to')+'</div><div class="shrow"><span class="fs">FS</span><input type="text" inputmode="none" data-kp="1" autocomplete="off" id="shIn" data-leg="'+gn.i+'" value="'+Math.round(ov?gn.ctrOv:sugg)+'" aria-label="New cargo center station"><button type="button" class="shgo" data-shgo="'+gn.i+'">'+(ov?'Update':'Apply')+'</button>'+(ov?'<button type="button" class="shgo" data-shclr="'+gn.i+'">Clear</button>':'')+'</div><div class="s">'+(ov?'Plan now uses cargo center FS '+Math.round(gn.ctrOv)+' for leg '+(L.i+2)+'. Clear to return to the loaded positions.':'Now FS '+Math.round(cur/10)*10+' · '+(gn.dm>0?'shift aft':'shift forward')+' to restore the CG margin for leg '+(L.i+2)+'. Edit the station if you moved it differently, then Apply.')+'</div></div>'}
  var preV=gn&&ovm('fobPre',gn.i)?+state.fobPre[gn.i]:null,postV=gn&&ovm('fobPost',gn.i)?+state.fobPost[gn.i]:null,upMan=gn&&gn.manual&&ovm('upOv',gn.i)&&postV==null;
  var preT=gn?OVT('fobPre',gn.i,'Landing fuel on board · '+esc(g.to)+' (lb)',preV,preV==null?'Plan on arrival '+fmt(g.lf)+' lb · enter the actual to set the uplift':'Plan on arrival '+fmt(g.lf)+' lb · actual entered',  'enter',preV!=null):'';
  var fuelD=gn?OVT('upOv',gn.i,'Fuel uplift · '+esc(g.to)+' (lb)',gn.skip&&postV==null&&!upMan?null:gn.up,(gn.skip&&!upMan?'Depart '+esc(g.to)+' with '+fmt(gn.ramp)+' lb, no uplift needed · tap NONE to enter one':fmt(gn.up/dn)+' gal added at '+esc(g.to)+' · ramp '+fmt(gn.ramp)+(gn.limited&&!gn.manual?' · LIMITED by '+esc(limTxt(gn.limitBy)):'')+(preV==null?' · from PLANNED arrival fuel '+fmt(g.lf)+' lb':' · from ACTUAL arrival fuel')+(upMan?' · MANUAL':'')),gn.skip?'NONE':'',upMan):K('Fuel uplift · '+esc(g.to),'—','Last leg · no further departure');
@@ -2440,6 +2452,25 @@ stackHeads(document);
   m.setAttribute('content','width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1');
   setTimeout(function(){m.setAttribute('content',c);place()},150)});
  window.SW_zoomPlace=place})();
+
+// ---------- On-screen number pad for the cockpit boxes (no need to open the keyboard) ----------
+(function(){var kp=$('kp');if(!kp)return;var cur=null,fresh=false,dirty=false;
+ function isNum(el){return el&&el.matches&&el.matches('#phases input[data-kp]')}
+ function show(el){cur=el;fresh=true;dirty=false;el.value=String(el.value).replace(/,/g,'');el.dataset.kp0=el.value;kp.hidden=false;document.body.classList.add('kpopen');
+  try{el.select()}catch(e){}
+  var ph=el.closest('.ph');if(ph){var r=el.getBoundingClientRect(),room=Math.max(0,window.innerHeight-kp.offsetHeight);if(r.bottom>room-12)ph.scrollTop+=r.bottom-room+60}}
+ function commit(){if(cur&&dirty){var el=cur;dirty=false;var raw=el.value;el.dispatchEvent(new Event('change',{bubbles:true}));if(el.id==='shIn')el.value=raw}}
+ function hide(){commit();kp.hidden=true;document.body.classList.remove('kpopen');cur=null}
+ $('phases').addEventListener('focusin',function(e){if(isNum(e.target)&&e.target!==cur)show(e.target)});
+ $('phases').addEventListener('focusout',function(e){if(!isNum(e.target))return;setTimeout(function(){var f=document.activeElement;if(f&&(isNum(f)||kp.contains(f)))return;hide()},0)});
+ kp.addEventListener('pointerdown',function(e){e.preventDefault()});
+ kp.addEventListener('click',function(e){var b=e.target.closest('[data-k]');if(!b||!cur)return;var k=b.getAttribute('data-k'),v=cur.value;
+  if(k==='done'){var el=cur;hide();el.blur();return}
+  if(k==='bs'){v=fresh?'':v.slice(0,-1)}else if(k==='clr'){v=''}else if(k==='neg'){v=v.charAt(0)==='-'?v.slice(1):'-'+v}else if(k==='.'){if(fresh)v='';if(v.indexOf('.')<0)v=(v===''?'0':v)+'.'}else{if(fresh)v='';v+=k}
+  fresh=false;dirty=true;cur.value=v;cur.dispatchEvent(new Event('input',{bubbles:true}))});
+ new MutationObserver(function(){if(cur&&!document.body.contains(cur)){dirty=false;kp.hidden=true;document.body.classList.remove('kpopen');cur=null}}).observe($('phases'),{childList:true,subtree:true});
+ var cl=$('cpEdit');if(cl)cl.addEventListener('click',function(){hide()});
+ window.SW_kpHide=hide})();
 </script>
 
 <script>
