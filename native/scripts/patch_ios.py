@@ -27,3 +27,10 @@ if os.path.exists(cj) and os.path.exists(src):
     for im in json.load(open(cj)).get('images', []):
         fn = im.get('filename')
         if fn: shutil.copy(src, os.path.join(ic, fn)); print('icon ->', fn)
+
+# Make sure every PNG in the icon set is ours, and say so in the log (md5 of the source vs the set).
+import glob, hashlib
+if os.path.exists(src) and os.path.isdir(ic):
+    h = hashlib.md5(open(src, 'rb').read()).hexdigest()[:8]
+    for f in glob.glob(os.path.join(ic, '*.png')): shutil.copy(src, f)
+    print('icon set', sorted(os.listdir(ic)), 'source md5', h)
