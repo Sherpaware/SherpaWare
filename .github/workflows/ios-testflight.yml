@@ -54,14 +54,29 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$S/dist.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
           echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+          # Sign the App target only (not the Capacitor plugin packages).
+          python3 - "$UUID" <<'PY'
+          import re, sys, os
+          uuid, team = sys.argv[1], os.environ['TEAM_ID']
+          p = 'native/ios/App/App.xcodeproj/project.pbxproj'; s = open(p).read(); n = 0
+          def fix(m):
+              global n
+              b = m.group(0)
+              if 'PRODUCT_BUNDLE_IDENTIFIER' not in b: return b
+              n += 1
+              b = re.sub(r'\s*(CODE_SIGN_STYLE|CODE_SIGN_IDENTITY(\[[^\]]*\])?|"CODE_SIGN_IDENTITY\[[^\]]*\]"|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE) = [^;]*;', '', b)
+              return b.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";' % (team, uuid), 1)
+          s = re.sub(r'buildSettings = \{.*?\n\t\t\t\};', fix, s, flags=re.S)
+          open(p, 'w').write(s); print('signing set on', n, 'App build configurations')
+          if not n: sys.exit('App target build settings not found')
+          PY
       - name: Archive (signed)
         working-directory: native/ios/App
         run: |
           set -o pipefail
           if [ -d App.xcworkspace ]; then T="-workspace App.xcworkspace"; else T="-project App.xcodeproj"; fi
           xcodebuild $T -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" MARKETING_VERSION=0.1.0 archive | tail -40
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" MARKETING_VERSION=0.1.0 archive | tail -60
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PL
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
