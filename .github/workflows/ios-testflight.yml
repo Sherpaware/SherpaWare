@@ -54,10 +54,15 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$S/dist.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
           echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+          # Use the team the profile actually belongs to (the APPLE_TEAM_ID secret may not match).
+          security cms -D -i "$S/dist.mobileprovision" > "$S/profile.plist"
+          SIGN_TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$S/profile.plist")
+          if [ "$SIGN_TEAM" = "$TEAM_ID" ]; then echo "team from profile matches APPLE_TEAM_ID secret"; else echo "NOTE: team from profile ($SIGN_TEAM) differs from the APPLE_TEAM_ID secret; using the profile's team"; fi
+          echo "SIGN_TEAM=$SIGN_TEAM" >> "$GITHUB_ENV"; export SIGN_TEAM
           # Sign the App target only (not the Capacitor plugin packages).
           python3 - "$UUID" <<'PY'
           import re, sys, os
-          uuid, team = sys.argv[1], os.environ['TEAM_ID']
+          uuid, team = sys.argv[1], os.environ['SIGN_TEAM']
           p = 'native/ios/App/App.xcodeproj/project.pbxproj'; s = open(p).read(); n = 0
           def fix(m):
               global n
@@ -65,7 +70,7 @@ jobs:
               if 'PRODUCT_BUNDLE_IDENTIFIER' not in b: return b
               n += 1
               b = re.sub(r'\s*(CODE_SIGN_STYLE|CODE_SIGN_IDENTITY(\[[^\]]*\])?|"CODE_SIGN_IDENTITY\[[^\]]*\]"|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER|PROVISIONING_PROFILE) = [^;]*;', '', b)
-              return b.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";' % (team, uuid), 1)
+              return b.replace('buildSettings = {', 'buildSettings = {\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";\n\t\t\t\t"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";\n\t\t\t\tDEVELOPMENT_TEAM = %s;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "%s";' % (team, uuid), 1)
           s = re.sub(r'buildSettings = \{.*?\n\t\t\t\};', fix, s, flags=re.S)
           open(p, 'w').write(s); print('signing set on', n, 'App build configurations')
           if not n: sys.exit('App target build settings not found')
@@ -83,7 +88,7 @@ jobs:
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>export</string>
-            <key>teamID</key><string>$TEAM_ID</string>
+            <key>teamID</key><string>$SIGN_TEAM</string>
             <key>signingStyle</key><string>manual</string>
             <key>signingCertificate</key><string>Apple Distribution</string>
             <key>provisioningProfiles</key><dict><key>com.sherpaware.n282bt</key><string>$PROFILE_UUID</string></dict>
