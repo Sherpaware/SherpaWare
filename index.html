@@ -304,7 +304,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 20:10 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 07:54 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -1824,7 +1824,7 @@ function autoWx(){if(!WX||!M||!WX.metar)return false;var ch=false;
   o.auto=true;o.taf=(WX.taf||{})[k]||'';ch=true})});
  if(ch)save();return ch}
 function autoNote(sc){var L=curL();if(!L)return;var o=scopeObj(sc),el=$(sc[0]+'_auto');
- if(o.auto&&o.metar){var age=metarAgeMin(o.metar);el.hidden=false;el.innerHTML='<b>AUTO</b> · METAR '+esc(metarZ(o.metar))+(age!=null?' ('+age+' min old'+(age>90?', <b style="color:var(--caution)">stale</b>':'')+')':'')+(sc==='arr'?' · current observation, not a forecast for the arrival time':'')+' · aviationweather.gov via SherpaWare, fetched '+esc(WX&&WX.fetchedAt?new Date(WX.fetchedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'')+'. Confirm against ATIS or ForeFlight before use. Typing any field switches this leg to manual.'}
+ if(o.auto&&o.metar){var age=metarAgeMin(o.metar);el.hidden=false;el.innerHTML='<b>AUTO</b> · METAR '+(age!=null&&age>60?'<b style="color:var(--caution);background:rgba(255,200,0,.25);padding:0 3px;border-radius:3px">'+esc(metarZ(o.metar))+'</b>':esc(metarZ(o.metar)))+(age!=null?' ('+age+' min old)':'')+(sc==='arr'?' · current observation, not a forecast for the arrival time':'')+' · aviationweather.gov via SherpaWare, fetched '+esc(WX&&WX.fetchedAt?new Date(WX.fetchedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'')+'. Confirm against ATIS or ForeFlight before use. Typing any field switches this leg to manual.'}
  else el.hidden=true}
 var pwSeen={};try{pwSeen=JSON.parse(localStorage.getItem('sherpaware-pw-seen')||'{}')||{}}catch(e){}
 function pwNew(){return PW.filter(function(d){return !pwSeen[d.id]})}
