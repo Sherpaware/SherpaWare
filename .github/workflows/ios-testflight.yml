@@ -51,12 +51,15 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>export</string>
             <key>teamID</key><string>$TEAM_ID</string>
             <key>signingStyle</key><string>automatic</string>
           </dict></plist>
           PL
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" $AUTH | tail -60
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" $AUTH | tail -60
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1); echo "exported $IPA"
+          # altool finds the key at ~/private_keys/AuthKey_<KEY_ID>.p8 (written above).
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER" --output-format normal
       - name: Remove the key
         if: always()
         run: rm -f "$HOME/private_keys/AuthKey_${KEY_ID}.p8"
