@@ -1,4 +1,4 @@
-"""After `npx cap add ios`: add the location/background keys the app needs to Info.plist, and make it iPad-only.
+"""After `npx cap add ios`: add the location/background keys the app needs to Info.plist, and make it a universal iPhone + iPad app.
 Safe to run twice."""
 import plistlib, os, re, sys
 base = os.path.join(os.path.dirname(__file__), '..', 'ios', 'App')
@@ -12,11 +12,11 @@ d['CFBundleDisplayName'] = 'SherpaWare'
 modes = set(d.get('UIBackgroundModes', [])); modes.add('location'); d['UIBackgroundModes'] = sorted(modes)
 plistlib.dump(d, open(pl, 'wb'))
 print('Info.plist updated')
-# iPad only (TARGETED_DEVICE_FAMILY = 2)
+# iPhone and iPad (TARGETED_DEVICE_FAMILY = 1,2)
 pj = os.path.join(base, 'App.xcodeproj', 'project.pbxproj')
 if os.path.exists(pj):
-    s = open(pj).read(); s2 = re.sub(r'TARGETED_DEVICE_FAMILY = "?[0-9,]+"?;', 'TARGETED_DEVICE_FAMILY = 2;', s)
-    open(pj, 'w').write(s2); print('device family set to iPad')
+    s = open(pj).read(); s2 = re.sub(r'TARGETED_DEVICE_FAMILY = "?[0-9,]+"?;', 'TARGETED_DEVICE_FAMILY = "1,2";', s)
+    open(pj, 'w').write(s2); print('device family set to iPhone + iPad')
 
 # App icon: replace the template's icon with ours (1024 x 1024, no transparency)
 import json, shutil
