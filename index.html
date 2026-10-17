@@ -304,7 +304,7 @@ li.al.info{border-left-color:var(--tide)}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 19:58 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Fri 16 Oct 2026 20:10 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -332,7 +332,7 @@ li.al.info{border-left-color:var(--tide)}
 
     <section class="panel pz" id="alerts" hidden aria-labelledby="h-al"><h2 id="h-al">Alerts</h2><ul class="alist" id="alist"></ul><p class="note" id="alegend"></p></section>
 
-    <section class="panel pz" aria-labelledby="h-nt"><h2 id="h-nt">NOTAMs</h2>
+    <section class="panel pz" id="ntPanel" hidden aria-labelledby="h-nt"><h2 id="h-nt">NOTAMs</h2>
       <p class="note">Paste the NOTAMs for every airport on this trip (from the FAA NOTAM Search, ForeFlight, or the flight packet). SherpaWare flags only closures and changes to published distances, for the planned departure and arrival times.</p>
       <label class="sub" for="ntDate">Flight date</label> <input id="ntDate" type="date">
       <textarea id="ntText" class="w" rows="6" placeholder="Paste NOTAMs here" aria-label="NOTAM text"></textarea>
@@ -1638,6 +1638,8 @@ if(typeof module!='undefined')module.exports={ntParse:ntParse,ntFlag:ntFlag,ntWi
 
 //NTUI-START
 // Relay (Cloudflare Worker, see relay/README.md). Empty = not set up: weather loads direct (blocked by browsers) and NOTAMs are pasted.
+// NOTAM panel and alerts are OFF in the web version (pasting NOTAMs is impractical for crews). Turn on (SW_NOTAMS=1 python3 build.py) for the standalone app once NOTAMs are pulled automatically.
+var SW_NOTAMS=false;
 var SW_RELAY='';
 function relayWx(k){return fetch(SW_RELAY+'/wx?ids='+k).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){return [(j.metar||{})[k]||'',(j.taf||{})[k]||'']})}
 function ntTripIds(){var o=[];if(state&&state.route)state.route.forEach(function(r){var c=ntToIcao(r.code);if(c&&o.indexOf(c)<0)o.push(c)});return o}
@@ -1665,7 +1667,7 @@ function ntState(){
  var list=ntParse(s.text),w=ntWindows(state.route,date,ntToIcao);
  return {date:date,has:true,list:list,res:ntCheck(list,w,ntToIcao),at:s.at}}
 function notamAlerts(){
- var st=ntState(),out=[];
+ var st=ntState(),out=[];if(!SW_NOTAMS)return out;
  if(!state)return out;
  if(!st.has){out.push({l:'info',t:'NOTAMs have not been checked. Paste the NOTAMs for every airport on this trip into the NOTAMs panel.',s:'NOTAMs not checked.'});return out}
  st.res.alerts.forEach(function(a){var n=a.n,leg=a.lg+1,role=a.role==='dep'?'departure':'arrival';
@@ -1674,6 +1676,7 @@ function notamAlerts(){
  if(st.at&&Date.now()-st.at>12*3600000)out.push({l:'warn',t:'The pasted NOTAMs are more than 12 hours old. Paste them again before flight.',s:'NOTAMs more than 12 h old.'});
  return out}
 function ntRender(){
+ var pn=$('ntPanel');if(pn)pn.hidden=!SW_NOTAMS;if(!SW_NOTAMS)return;
  var el=$('ntOut');if(!el)return;
  var s=ST.notam||{},st=ntState();
  var fb=$('ntFetch');if(fb)fb.hidden=!SW_RELAY;var di=$('ntDate');if(di&&document.activeElement!==di)di.value=st.date;
