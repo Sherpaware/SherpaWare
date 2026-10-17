@@ -315,7 +315,7 @@ html,body{touch-action:manipulation}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 14:53 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 15:00 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -2193,9 +2193,9 @@ function renderCockpit(){
  var shT='';if(gn&&gn.cw>0&&(Math.abs(gn.dm||0)>0.5||gn.ctrOv!=null)){var cur=gn.cm/gn.cw,tgt=(gn.cm+gn.dm)/gn.cw,sugg=Math.round(tgt/10)*10,ov=gn.ctrOv!=null;
   shT='<div class="k shk'+(ov?'':' hot')+'" data-init="'+sugg+'"><div class="l">'+(ov?'Cargo center<br>applied':'Move cargo<br>center to')+'</div><div class="shrow"><span class="fs">FS</span><input type="text" inputmode="decimal" id="shIn" data-leg="'+gn.i+'" value="'+Math.round(ov?gn.ctrOv:sugg)+'" aria-label="New cargo center station"><button type="button" class="shgo" data-shgo="'+gn.i+'">'+(ov?'Update':'Apply')+'</button>'+(ov?'<button type="button" class="shgo" data-shclr="'+gn.i+'">Clear</button>':'')+'</div><div class="s">'+(ov?'Plan now uses cargo center FS '+Math.round(gn.ctrOv)+' for leg '+(L.i+2)+'. Clear to return to the loaded positions.':'Now FS '+Math.round(cur/10)*10+' · '+(gn.dm>0?'shift aft':'shift forward')+' to restore the CG margin for leg '+(L.i+2)+'. Edit the station if you moved it differently, then Apply.')+'</div></div>'}
  var preV=gn&&ovm('fobPre',gn.i)?+state.fobPre[gn.i]:null,postV=gn&&ovm('fobPost',gn.i)?+state.fobPost[gn.i]:null,upMan=gn&&gn.manual&&ovm('upOv',gn.i)&&postV==null;
- var preT=gn?OVT('fobPre',gn.i,'Actual fuel on board · '+esc(g.to)+'<br>before uplift (lb)',preV,preV==null?'Plan on arrival '+fmt(g.lf)+' lb · enter the actual to set the uplift':'Plan on arrival '+fmt(g.lf)+' lb · actual entered',  'enter',preV!=null):'';
+ var preT=gn?OVT('fobPre',gn.i,'Landing fuel on board · '+esc(g.to)+' (lb)',preV,preV==null?'Plan on arrival '+fmt(g.lf)+' lb · enter the actual to set the uplift':'Plan on arrival '+fmt(g.lf)+' lb · actual entered',  'enter',preV!=null):'';
  var fuelD=gn?OVT('upOv',gn.i,'Fuel uplift · '+esc(g.to)+' (lb)',gn.skip&&postV==null&&!upMan?null:gn.up,(gn.skip&&!upMan?'Depart '+esc(g.to)+' with '+fmt(gn.ramp)+' lb, no uplift needed · tap NONE to enter one':fmt(gn.up/dn)+' gal added at '+esc(g.to)+' · ramp '+fmt(gn.ramp)+(gn.limited&&!gn.manual?' · LIMITED by '+esc(limTxt(gn.limitBy)):'')+(preV==null?' · from PLANNED arrival fuel '+fmt(g.lf)+' lb':' · from ACTUAL arrival fuel')+(upMan?' · MANUAL':'')),gn.skip?'NONE':'',upMan):K('Fuel uplift · '+esc(g.to),'—','Last leg · no further departure');
- var postT=gn?OVT('fobPost',gn.i,'Actual fuel on board<br>after uplift (lb)',postV,postV!=null?'Plan ramp '+fmt(gn.ramp)+' lb · actual entered':(gn.skip?'No uplift planned · tap NONE to enter the actual fuel':'Plan ramp '+fmt(gn.ramp)+' lb · enter after fueling'),gn.skip?'NONE':'enter',postV!=null):'';
+ var postT=gn?OVT('fobPost',gn.i,'Total fuel on board · '+esc(g.to)+'<br>after uplift (lb)',postV,postV!=null?'Plan ramp '+fmt(gn.ramp)+' lb · actual entered':(gn.skip?'No uplift planned · tap NONE to enter the actual fuel':'Plan ramp '+fmt(gn.ramp)+' lb · enter after fueling'),gn.skip?'NONE':'enter',postV!=null):'';
  var byD={};offA.forEach(function(x){var k2=x.dest||'?';byD[k2]=(byD[k2]||0)+(+x.kg||0)*KG});
  var byH=Object.keys(byD).length?'<div class="cmt"><b>Off at '+esc(g.to)+' by destination airport:</b><br>'+Object.keys(byD).map(function(k2){return esc(k2)+(k2===g.to?' (final here)':' (through)')+' · '+fmt(byD[k2])+' lb'}).join('<br>')+'</div>':'';
  var offV=gn&&ovm('offOv',gn.i)?+state.offOv[gn.i]:lbOf(offA),onV=gn&&ovm('onOv',gn.i)?+state.onOv[gn.i]:lbOf(onD);
@@ -2203,9 +2203,8 @@ function renderCockpit(){
  h.push(head(5)+'<div class="legline">At <b>'+esc(g.to)+'</b> · after leg '+(L.i+1)+' of '+n+'</div><div class="kv">'+OVT('cwOv',g.i,'Cargo on board · from '+esc(g.from)+' (lb)',g.cw,'leaving '+esc(g.from)+(cwMan?' · MANUAL':''),'0',cwMan)+
   (gn?OVT('offOv',gn.i,'Cargo off · '+esc(g.to)+' (lb)',offV,'after landing · '+cnt(offA)+(ovm('offOv',gn.i)?' · MANUAL':''),'0',ovm('offOv',gn.i)):K('Cargo off · '+esc(g.to)+' (lb)',fmt(lbOf(offA)),'after landing · '+cnt(offA)))+'</div>'+byH+
   '<div class="kv">'+preT+fuelD+(gn?OVT('onOv',gn.i,'Cargo on · '+esc(g.to)+' (lb)',onV,cnt(onD)+(ovm('onOv',gn.i)?' · MANUAL':''),'0',ovm('onOv',gn.i)):K('Cargo on · '+esc(g.to)+' (lb)',fmt(lbOf(onD)),'last leg'))+
-  (gn?OVT('cwOv',gn.i,'Total cargo on board (lb)',gn.cw,'leaving '+esc(g.to)+(totMan?' · MANUAL':''),'0',totMan):K('Total cargo on board (lb)','—','trip ends at '+esc(g.to)))+shT+'</div>'+
+  (gn?OVT('cwOv',gn.i,'Total cargo on board (lb)',gn.cw,'leaving '+esc(g.to)+(totMan?' · MANUAL':''),'0',totMan):K('Total cargo on board (lb)','—','trip ends at '+esc(g.to)))+postT+shT+'</div>'+
   '<div class="cmt"><b>Off at '+esc(g.to)+':</b> '+lst(offA)+'<br><b>On at '+esc(g.to)+':</b> '+lst(onD)+'</div>'+
-  (gn?'<div class="kv">'+postT+'</div>':'')+
   (g.i===0?'<div class="sub-h">Before departure · '+esc(g.from)+'</div><div class="kv">'+fuelT+'</div>':'')+
   '<div class="foot">Everything on this page is for the destination, '+esc(g.to)+'. Pounds from the airway bills (kg × 2.20462). Tap any cargo or fuel number to type the actual; the plan recalculates, and an empty box returns to the plan. The cargo center is the arm of all cargo aboard, rounded to 10 in.</div>');
  h.push(head(6)+flPageHtml(L));
