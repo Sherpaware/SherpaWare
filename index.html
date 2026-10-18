@@ -186,6 +186,31 @@ li.al.info{border-left-color:var(--tide)}
 .cpbtn{margin-left:auto}
 #cockpit{position:fixed;inset:0;z-index:50;background:var(--paper);display:grid;grid-template-rows:auto minmax(0,1fr);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #cockpit[hidden]{display:none}
+/* Dock: on wide screens the cockpit sits in a resizable panel (right 25% by default) */
+.dkb{display:none;gap:4px}
+#dockBk{position:fixed;inset:0;z-index:49;background:#14181c}
+#dockBk[hidden]{display:none}
+#dockH{display:none}
+@media(min-width:700px){
+ .dkb{display:inline-flex}
+ #cockpit.dk{inset:auto;border:2px solid var(--rule)}
+ #cockpit.dk-r{top:0;bottom:0;right:0;left:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
+ #cockpit.dk-l{top:0;bottom:0;left:0;right:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
+ #cockpit.dk-t{top:0;left:0;right:0;bottom:auto;height:calc(var(--dkw,25)*1vh);min-height:260px}
+ #cockpit.dk-b{bottom:0;left:0;right:0;top:auto;height:calc(var(--dkw,25)*1vh);min-height:260px}
+ #cockpit.dk{grid-template-rows:auto auto minmax(0,1fr)}
+ #cockpit.dk #dockH{display:block;position:absolute;z-index:3;background:var(--rule);opacity:.55;touch-action:none}
+ #cockpit.dk #dockH::after{content:"";position:absolute;inset:-14px}
+ #cockpit.dk-r #dockH{left:0;top:0;bottom:0;width:8px;cursor:ew-resize}
+ #cockpit.dk-l #dockH{right:0;top:0;bottom:0;width:8px;cursor:ew-resize}
+ #cockpit.dk-t #dockH{left:0;right:0;bottom:0;height:8px;cursor:ns-resize}
+ #cockpit.dk-b #dockH{left:0;right:0;top:0;height:8px;cursor:ns-resize}
+ #cockpit.dk-r.dk .cp-bar{padding-left:18px}
+ body.dkon #kp.dk-r{left:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
+ body.dkon #kp.dk-l{right:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
+ body.dkon #kp.dk-t{bottom:auto;top:calc(var(--dkw,25)*1vh - 330px)}
+}
+
 .cp-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:2px solid var(--rule);background:var(--card)}
 .cp-bar .id{font:700 20px/1 var(--f-label);letter-spacing:.05em;min-width:0}
 .cp-bar .id small{font-weight:600;color:var(--muted);font-size:15px;margin-left:4px}
@@ -321,7 +346,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sat 17 Oct 2026 15:22 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 08:53 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -476,8 +501,10 @@ body.kpopen .ph{padding-bottom:330px}
     <button type="button" data-k="0" class="z">0</button><button type="button" data-k=".">.</button><button type="button" data-k="done" class="dn">Done</button>
   </div>
   <button type="button" id="zoomFit" hidden aria-label="Fit to screen width">Fit width</button>
+  <div id="dockBk" hidden></div>
   <div id="cockpit" hidden role="dialog" aria-label="Cockpit view">
-    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
+    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><span class="dkb" id="dkb" role="group" aria-label="Dock position"><button type="button" class="ghost" data-dk="l" aria-label="Dock left" title="Dock left">◧</button><button type="button" class="ghost" data-dk="t" aria-label="Dock top" title="Dock top">⬒</button><button type="button" class="ghost" data-dk="b" aria-label="Dock bottom" title="Dock bottom">⬓</button><button type="button" class="ghost" data-dk="r" aria-label="Dock right" title="Dock right">◨</button></span><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
+    <div id="dockH" role="separator" aria-label="Drag to resize"></div>
     <div class="cp-body"><div class="phases" id="phases"></div><div class="dots" id="dots"></div></div>
   </div>
 </div>
@@ -2241,7 +2268,7 @@ $('phases').addEventListener('click',function(e){var b=e.target.closest('[data-s
 $('phases').addEventListener('change',function(e){if(e.target.matches('select[data-c]'))setTimeout(fillFields,0)});
 $('phases').addEventListener('scroll',function(){var ph=$('phases'),i=Math.round(ph.scrollTop/Math.max(1,ph.clientHeight));if(i!==cpIdx){cpIdx=i;[].forEach.call($('dots').children,function(b,j){b.classList.toggle('on',j===i)});try{localStorage.setItem('sherpaware-cp-idx',i)}catch(e){}}},{passive:true});
 $('dots').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;var ph=$('phases');ph.scrollTo({top:+b.dataset.i*ph.clientHeight,behavior:'smooth'})});
-function openCockpit(on){$('cockpit').hidden=!on;try{localStorage.setItem('sherpaware-cp',on?'1':'0')}catch(e){}if(on)renderCockpit()}
+function openCockpit(on){$('cockpit').hidden=!on;dockApply();try{localStorage.setItem('sherpaware-cp',on?'1':'0')}catch(e){}if(on)renderCockpit()}
 $('cpOpen').addEventListener('click',function(){openCockpit(true)});
 $('cpEdit').addEventListener('click',function(){openCockpit(false)});
 $('cpLeg').addEventListener('click',function(){if(!M||ST.sel>=M.legs.length-1)return;ST.sel++;cpIdx=0;save();renderAll();fillFields()});
@@ -2435,6 +2462,27 @@ $('setbase').onclick=function(){base=clone(state);log.unshift({t:new Date().toLo
 function stackHeads(root){[].forEach.call((root||document).querySelectorAll('th:not([data-stk])'),function(th){th.setAttribute('data-stk','1');
  if(th.children.length)return;var t=th.textContent.trim(),w=t.split(/\s+/);if(w.length<2)return;th.innerHTML=esc(w[0])+'<br>'+esc(w.slice(1).join(' '))})}
 try{new MutationObserver(function(){stackHeads(document)}).observe(document.body,{childList:true,subtree:true})}catch(e){}
+// ---------- Dock: wide screens show the cockpit as a resizable side/top/bottom panel ----------
+var DK={pos:'r',w:25};
+try{var _d=JSON.parse(localStorage.getItem('sherpaware-dock')||'null');if(_d&&/^[lrtb]$/.test(_d.pos)){DK.pos=_d.pos;DK.w=Math.min(70,Math.max(15,+_d.w||25))}}catch(e){}
+function dockOn(){return window.innerWidth>=700}
+function dockApply(){var c=$('cockpit'),kp=$('kp'),on=dockOn()&&!c.hidden;
+ ['l','r','t','b'].forEach(function(p){c.classList.toggle('dk-'+p,on&&DK.pos===p);if(kp)kp.classList.toggle('dk-'+p,on&&DK.pos===p)});
+ c.classList.toggle('dk',on);document.body.classList.toggle('dkon',on);$('dockBk').hidden=!on;
+ document.documentElement.style.setProperty('--dkw',DK.w);
+ [].forEach.call(document.querySelectorAll('[data-dk]'),function(b){b.classList.toggle('on',b.getAttribute('data-dk')===DK.pos)})}
+function dockSave(){try{localStorage.setItem('sherpaware-dock',JSON.stringify(DK))}catch(e){}}
+$('dkb').addEventListener('click',function(e){var b=e.target.closest('[data-dk]');if(!b)return;DK.pos=b.getAttribute('data-dk');dockSave();dockApply()});
+(function(){var h=$('dockH'),drag=false;
+ h.addEventListener('pointerdown',function(e){drag=true;try{h.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault()});
+ h.addEventListener('pointermove',function(e){if(!drag)return;var W=window.innerWidth,H=window.innerHeight,p=DK.pos,v;
+  if(p==='r')v=(W-e.clientX)/W;else if(p==='l')v=e.clientX/W;else if(p==='t')v=e.clientY/H;else v=(H-e.clientY)/H;
+  DK.w=Math.round(Math.min(70,Math.max(15,v*100)));document.documentElement.style.setProperty('--dkw',DK.w)});
+ function end(){if(drag){drag=false;dockSave()}}
+ h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end)})();
+window.addEventListener('resize',dockApply);
+window.SW_dock=DK;dockApply();
+
 // ---------- Start ----------
 loadStore();
 try{cpIdx=+(localStorage.getItem('sherpaware-cp-idx')||0)||0;var cpWas=localStorage.getItem('sherpaware-cp')}catch(e){}
