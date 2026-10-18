@@ -356,7 +356,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 09:08 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 09:17 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -1924,6 +1924,16 @@ $('pwReview').onclick=function(){var nw=pwNew();if(!nw.length||!state)return;ope
 // ---------- Render everything ----------
 var TRIPA=[];
 
+// ---------- Trip code: a draft trip carried in a link (#t=...) or a pasted code (SW1:...) ----------
+function tripFromCode(s){var m=/(?:#t=|SW1:)([A-Za-z0-9_-]{20,})/.exec(s||'');if(!m)return null;
+ try{var b=m[1].replace(/-/g,'+').replace(/_/g,'/');while(b.length%4)b+='=';var o=JSON.parse(decodeURIComponent(escape(atob(b))));
+  if(o&&o.state&&Array.isArray(o.state.route))return o}catch(e){}return null}
+function importTrip(o){var id=o.id||o.state.tid,ex=ST.lib&&ST.lib[id];
+ if(ex&&ex.t.log&&ex.t.log.length>1){if(state&&state.tid===id)return 'kept';ST.lib[id].ts=Date.now();var s2=ex.t;if(state)save();state=s2.state;base=s2.base;log=s2.log;clearLegData();save();renderAll();fillFields();return 'kept'}
+ if(state)save();state=o.state;state.tid=id;base=clone(state);
+ log=[{t:new Date().toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),note:'Loaded draft trip from a trip code'+(o.label?': '+o.label:''),photo:false}];
+ clearLegData();save();renderAll();fillFields();return 'new'}
+
 // ---------- Flight list (saved and prepared trips) ----------
 function fdate(d){if(!d)return 'No date';var x=new Date(d+'T12:00:00');return isNaN(x)?d:x.toLocaleDateString('en-US',{weekday:'short',day:'numeric',month:'short'})}
 function flightRows(){var rows=[],cur=state&&state.tid,lib=ST.lib||{},today=new Date().toISOString().slice(0,10);
@@ -2351,7 +2361,7 @@ function stepPaste(txt){
    if(!got)fl.push('<span class="warn">Nothing readable was on the clipboard.</span>');note()
   }catch(e){fl.push('<span class="warn">This browser would not let the page read the clipboard. Tap the box below, press and hold, and choose Paste. If that does nothing, use Choose files.</span>');note()}};
  $('ptxt').addEventListener('paste',function(e){var f=clipFiles(e);if(f.length){e.preventDefault();take(f)}});
- $('pread').onclick=function(){var t=$('ptxt').value;pres=parsePaste(t,draft.route.map(function(s){return s.code}));
+ $('pread').onclick=function(){var t=$('ptxt').value;var tc=tripFromCode(t);if(tc){$('modal').hidden=true;importTrip(tc);return}pres=parsePaste(t,draft.route.map(function(s){return s.code}));
   if(!pres.cargo.length&&!pres.legs.length&&!pres.status&&!pres.training){$('pmsg').textContent=pres.warn[0];return}pasteReview(t)};
 }
 function offFor(route,d){for(var i=route.length-1;i>=1;i--)if(route[i].code==d)return i;return /^(SLU|BGI)$/.test(d)?1:-1}
@@ -2509,6 +2519,7 @@ try{cpIdx=+(localStorage.getItem('sherpaware-cp-idx')||0)||0;var cpWas=localStor
 renderAll();fillFields();
 flInit();
 if(cpWas==='1'||(cpWas==null&&window.innerWidth<=520))openCockpit(true);
+(function(){var tc=tripFromCode(location.hash);if(tc){importTrip(tc);try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}}})();
 stackHeads(document);
 
 // ---------- Pinch zoom: allowed (viewport maximum-scale=5); "Fit width" button appears while zoomed in and puts the page back to the screen width ----------
