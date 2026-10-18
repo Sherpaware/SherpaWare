@@ -221,7 +221,7 @@ li.al.info{border-left-color:var(--tide)}
  body.dkon #kp.dk-t{bottom:auto;top:calc(var(--dkw,25)*1vh - 330px)}
 }
 
-.cp-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:2px solid var(--rule);background:var(--card)}
+.cp-bar{display:flex;flex-wrap:wrap;row-gap:6px;align-items:center;gap:8px;padding:8px 12px;border-bottom:2px solid var(--rule);background:var(--card)}
 .cp-bar .id{font:700 20px/1 var(--f-label);letter-spacing:.05em;min-width:0}
 .cp-bar .id small{font-weight:600;color:var(--muted);font-size:15px;margin-left:4px}
 .cp-bar .demo{font:700 11px var(--f-label);letter-spacing:.08em;background:var(--caution);color:var(--card);border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:middle}
@@ -351,14 +351,27 @@ body.kpopen .ph{padding-bottom:330px}
   .k .cf input{font-size:22px}
   .dots button{width:10px;height:10px}
 }
+
+/* Draft marker and minimized cockpit */
+#draftTag{position:fixed;left:8px;bottom:8px;z-index:40;background:var(--caution);color:#fff;font:700 12px var(--f-label);letter-spacing:.08em;padding:3px 8px;border-radius:4px;pointer-events:none}
+#draftTag[hidden]{display:none}
+.demo.draft{background:var(--caution)}
+#cockpit.min{top:0 !important;bottom:auto !important;left:auto !important;right:0 !important;width:auto !important;height:auto !important;min-width:0 !important;grid-template-rows:auto !important}
+#cockpit.min .cp-body,#cockpit.min #dockH{display:none !important}
+#cockpit.min .cp-bar{border-bottom:2px solid var(--rule)}
+#cockpit.min .cp-bar .sp,#cockpit.min #cpPrev,#cockpit.min #cpLeg,#cockpit.min #dkb{display:none !important}
+#refreshMsg{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:9995;background:var(--ink);color:var(--card);font:600 14px var(--f-label);padding:8px 14px;border-radius:6px;max-width:92vw;text-align:center}
+#refreshMsg.bad{background:var(--caution);color:#1a1a1a}
+#refreshMsg[hidden]{display:none}
 </style>
 
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 09:51 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 15:56 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
+    <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
   </header>
 
   <p class="disclaim"><b>Planning aid.</b> The AFM, QRH and APG airport analyses govern performance. The official W&amp;B form governs CG limits, datum, arms and gear-retraction values. Verify every figure against the source cited with it before flight.</p>
@@ -518,9 +531,11 @@ body.kpopen .ph{padding-bottom:330px}
 <h4>Stage Manager (iPad with M-series chip)</h4><ol><li>Control Center, tap Stage Manager on.</li><li>Open both apps; drag the corner handle of the SherpaWare window to about a quarter of the screen and place it where you like.</li></ol>
 <p class="sh-n">In any of these the cockpit view simply fills SherpaWare's window. If Split View or Slide Over are missing, turn on Settings, Multitasking and Gestures.</p>
 <button type="button" id="splitClose">Close</button></div></div>
+  <div id="draftTag" hidden>DRAFT · NOT RELEASED</div>
+  <div id="refreshMsg" hidden role="status"></div>
   <div id="dockBk" hidden></div>
   <div id="cockpit" hidden role="dialog" aria-label="Cockpit view">
-    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><button type="button" class="ghost splb" id="splitBtn" aria-label="How to share the screen with ForeFlight">Split</button><span class="dkb" id="dkb" role="group" aria-label="Dock position"><button type="button" class="ghost" data-dk="l" aria-label="Dock left" title="Dock left">◧</button><button type="button" class="ghost" data-dk="t" aria-label="Dock top" title="Dock top">⬒</button><button type="button" class="ghost" data-dk="b" aria-label="Dock bottom" title="Dock bottom">⬓</button><button type="button" class="ghost" data-dk="r" aria-label="Dock right" title="Dock right">◨</button></span><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
+    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><button type="button" class="ghost splb" id="splitBtn" aria-label="How to share the screen with ForeFlight">Split</button><span class="dkb" id="dkb" role="group" aria-label="Dock position"><button type="button" class="ghost" data-dk="l" aria-label="Dock left" title="Dock left">◧</button><button type="button" class="ghost" data-dk="t" aria-label="Dock top" title="Dock top">⬒</button><button type="button" class="ghost" data-dk="b" aria-label="Dock bottom" title="Dock bottom">⬓</button><button type="button" class="ghost" data-dk="r" aria-label="Dock right" title="Dock right">◨</button></span><button type="button" class="ghost" id="cpRefresh" aria-label="Refresh all data" title="Refresh all data">Refresh</button><button type="button" class="ghost" id="cpMin" aria-label="Minimize" title="Minimize">–</button><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
     <div id="dockH" role="separator" aria-label="Drag to resize"></div>
     <div class="cp-body"><div class="phases" id="phases"></div><div class="dots" id="dots"></div></div>
   </div>
@@ -2183,7 +2198,7 @@ function renderCockpit(){
  var cp=$('cockpit');if(cp.hidden)return;
  if(!M){$('cpId').innerHTML='SherpaWare';$('cpLeg').hidden=true;$('cpPrev').hidden=true;$('phases').innerHTML='<div class="cp-empty">No trip loaded. Tap Edit to paste the day\'s paperwork, enter a route, or open the demo trip.</div>';$('dots').innerHTML='';return}
  var L=curL(),g=L.g,dep=L.dep,arr=L.arr,n=M.legs.length,c=scopeObj('dep');
- $('cpId').innerHTML=esc(g.from)+' › '+esc(g.to)+'<small>LEG '+(L.i+1)+'/'+n+(dep.ok?' · RWY '+esc(dep.rwy):'')+'</small>'+(state.demo?'<span class="demo">DEMO</span>':'')+(state.itin&&state.itin.status==='proposed'?'<span class="demo">PROPOSED</span>':'');
+ $('cpId').innerHTML=esc(g.from)+' › '+esc(g.to)+'<small>LEG '+(L.i+1)+'/'+n+(dep.ok?' · RWY '+esc(dep.rwy):'')+'</small>'+(state.demo?'<span class="demo">DEMO</span>':'')+(state.itin&&state.itin.status==='proposed'?'<span class="demo draft">DRAFT</span>':'');
  $('cpLeg').hidden=n<2;$('cpPrev').hidden=n<2;$('cpPrev').disabled=L.i<=0;$('cpLeg').disabled=L.i>=n-1;
  // Alerts for this leg, then trip-wide cautions (paperwork, aircraft status)
  var al=TRIPA.filter(function(a){return a.lg===L.i&&a.l!=='info'||a.lg==null&&a.l==='bad'});
@@ -2489,6 +2504,31 @@ $('setbase').onclick=function(){base=clone(state);log.unshift({t:new Date().toLo
 function stackHeads(root){[].forEach.call((root||document).querySelectorAll('th:not([data-stk])'),function(th){th.setAttribute('data-stk','1');
  if(th.children.length)return;var t=th.textContent.trim(),w=t.split(/\s+/);if(w.length<2)return;th.innerHTML=esc(w[0])+'<br>'+esc(w.slice(1).join(' '))})}
 try{new MutationObserver(function(){stackHeads(document)}).observe(document.body,{childList:true,subtree:true})}catch(e){}
+// ---------- Draft marker, refresh all data, minimize cockpit ----------
+function isDraft(){return !!(state&&state.itin&&state.itin.status==='proposed')}
+function draftTag(){var d=$('draftTag');if(d)d.hidden=!isDraft()}
+function refreshMsg(t,bad){var m=$('refreshMsg');if(!m)return;m.textContent=t;m.className=bad?'bad':'';m.hidden=false;clearTimeout(refreshMsg.tm);refreshMsg.tm=setTimeout(function(){m.hidden=true},4500)}
+function refreshAll(btn){
+ if(!M||!state){refreshMsg('Open a trip first.',true);return}
+ if(!SW_RELAY){refreshMsg('Weather refresh needs the SherpaWare relay, which this copy does not have.',true);return}
+ var ids=[];M.legs.forEach(function(L){[L.depIcao,L.arrIcao].forEach(function(k){if(k&&ids.indexOf(k)<0)ids.push(k)})});
+ if(!ids.length){refreshMsg('No airports on this trip yet.',true);return}
+ var buttons=[$('refreshAll'),$('cpRefresh')].filter(Boolean);buttons.forEach(function(b){b.disabled=true});
+ fetch(SW_RELAY+'/wx?ids='+ids.join(','),{cache:'no-store'})
+  .then(function(r){if(!r.ok)throw new Error('relay '+r.status);return r.json()})
+  .then(function(j){var orig=ST.sel,n=0;
+   M.legs.forEach(function(L,i){['dep','arr'].forEach(function(sc){var k=sc==='dep'?L.depIcao:L.arrIcao,raw=(j.metar||{})[k];if(!raw)return;
+    ST.sel=i;try{var o=scopeObj(sc);o.metar=raw;o.taf=(j.taf||{})[k]||'';o.auto=true;applyMetar(sc,raw,true);n++}catch(e){}})});
+   ST.sel=orig;save();renderAll();fillFields();
+   refreshMsg(n?'Weather refreshed: '+n+' report'+(n===1?'':'s')+' at '+new Date().toISOString().slice(11,16)+'Z.':'No current weather returned for this trip.',!n)})
+  .catch(function(){refreshMsg('Refresh failed. Check the connection and try again.',true)})
+  .then(function(){buttons.forEach(function(b){b.disabled=false})});
+}
+$('refreshAll').addEventListener('click',function(){refreshAll(this)});
+$('cpRefresh').addEventListener('click',function(){refreshAll(this)});
+$('cpMin').addEventListener('click',function(){var c=$('cockpit'),m=!c.classList.contains('min');c.classList.toggle('min',m);this.textContent=m?'+':'–';this.setAttribute('aria-label',m?'Restore':'Minimize');this.title=m?'Restore':'Minimize'});
+var _renderAllBase=renderAll;renderAll=function(){_renderAllBase.apply(this,arguments);draftTag()};
+
 // ---------- Dock: wide screens show the cockpit as a resizable side/top/bottom panel ----------
 var DK={pos:'r',w:25};
 try{var _d=JSON.parse(localStorage.getItem('sherpaware-dock')||'null');if(_d&&/^[lrtb]$/.test(_d.pos)){DK.pos=_d.pos;DK.w=Math.min(70,Math.max(15,+_d.w||25))}}catch(e){}
