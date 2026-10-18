@@ -9,6 +9,8 @@ d['NSLocationWhenInUseUsageDescription'] = 'SherpaWare uses location to record b
 d['NSLocationAlwaysAndWhenInUseUsageDescription'] = 'SherpaWare keeps recording flight times while ForeFlight is on screen. Location is not sent anywhere.'
 d['ITSAppUsesNonExemptEncryption'] = False  # no custom encryption: skips the export-compliance question on each upload
 d['CFBundleDisplayName'] = 'SherpaWare'
+d['UIRequiresFullScreen'] = False  # allow iPad Split View, Slide Over and Stage Manager (all four orientations must stay supported)
+d['UISupportedInterfaceOrientations~ipad'] = ['UIInterfaceOrientationPortrait','UIInterfaceOrientationPortraitUpsideDown','UIInterfaceOrientationLandscapeLeft','UIInterfaceOrientationLandscapeRight']
 modes = set(d.get('UIBackgroundModes', [])); modes.add('location'); d['UIBackgroundModes'] = sorted(modes)
 plistlib.dump(d, open(pl, 'wb'))
 print('Info.plist updated')

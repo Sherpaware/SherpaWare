@@ -187,12 +187,20 @@ li.al.info{border-left-color:var(--tide)}
 #cockpit{position:fixed;inset:0;z-index:50;background:var(--paper);display:grid;grid-template-rows:auto minmax(0,1fr);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 #cockpit[hidden]{display:none}
 /* Dock: on wide screens the cockpit sits in a resizable panel (right 25% by default) */
-.dkb{display:none;gap:4px}
+.dkb,.splb{display:none;gap:4px}
+#splitHelp{position:fixed;inset:0;z-index:9980;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+#splitHelp[hidden]{display:none}
+.sh-card{background:var(--card);color:var(--ink);border:2px solid var(--rule);border-radius:8px;max-width:520px;max-height:90vh;overflow:auto;padding:14px 18px}
+.sh-card h3{margin:0 0 6px;font:700 19px var(--f-label);letter-spacing:.06em;text-transform:uppercase}
+.sh-card h4{margin:10px 0 2px;font:700 15px var(--f-label)}
+.sh-card ol{margin:2px 0 0;padding-left:22px;font-size:15px;line-height:1.35}
+.sh-n{font-size:13px;color:var(--muted);margin:4px 0}
 #dockBk{position:fixed;inset:0;z-index:49;background:#14181c}
 #dockBk[hidden]{display:none}
 #dockH{display:none}
 @media(min-width:700px){
  .dkb{display:inline-flex}
+ .splb{display:inline-block}
  #cockpit.dk{inset:auto;border:2px solid var(--rule)}
  #cockpit.dk-r{top:0;bottom:0;right:0;left:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
  #cockpit.dk-l{top:0;bottom:0;left:0;right:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
@@ -205,6 +213,8 @@ li.al.info{border-left-color:var(--tide)}
  #cockpit.dk-l #dockH{right:0;top:0;bottom:0;width:8px;cursor:ew-resize}
  #cockpit.dk-t #dockH{left:0;right:0;bottom:0;height:8px;cursor:ns-resize}
  #cockpit.dk-b #dockH{left:0;right:0;top:0;height:8px;cursor:ns-resize}
+ #cockpit.dk .cp-bar{flex-wrap:wrap;row-gap:6px}
+ #cockpit.dk .cp-bar .sp{display:none}
  #cockpit.dk-r.dk .cp-bar{padding-left:18px}
  body.dkon #kp.dk-r{left:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
  body.dkon #kp.dk-l{right:auto;width:calc(var(--dkw,25)*1vw);min-width:300px}
@@ -346,7 +356,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 08:53 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 09:08 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
   </header>
@@ -501,9 +511,16 @@ body.kpopen .ph{padding-bottom:330px}
     <button type="button" data-k="0" class="z">0</button><button type="button" data-k=".">.</button><button type="button" data-k="done" class="dn">Done</button>
   </div>
   <button type="button" id="zoomFit" hidden aria-label="Fit to screen width">Fit width</button>
+  <div id="splitHelp" hidden role="dialog" aria-label="Share the screen with ForeFlight"><div class="sh-card"><h3>Share the screen with ForeFlight</h3>
+<p class="sh-n">iPadOS does this, not the app. Set it once; the iPad usually remembers it.</p>
+<h4>Slide Over (floating narrow panel)</h4><ol><li>Open ForeFlight full screen.</li><li>Swipe up a little from the bottom edge to show the Dock.</li><li>Touch and hold the SherpaWare icon, drag it onto the screen, release when ForeFlight shifts.</li><li>Drag the thin bar at the top of the panel left or right to move it. Flick it off the edge to hide it; swipe in from that edge to bring it back.</li></ol>
+<h4>Split View (side by side)</h4><ol><li>With ForeFlight open, tap the three dots at the top of the screen, then the Split View button.</li><li>Pick SherpaWare on the Home Screen.</li><li>Drag the black divider to about 70 / 30. Drag the divider to the edge to close one side.</li></ol>
+<h4>Stage Manager (iPad with M-series chip)</h4><ol><li>Control Center, tap Stage Manager on.</li><li>Open both apps; drag the corner handle of the SherpaWare window to about a quarter of the screen and place it where you like.</li></ol>
+<p class="sh-n">In any of these the cockpit view simply fills SherpaWare's window. If Split View or Slide Over are missing, turn on Settings, Multitasking and Gestures.</p>
+<button type="button" id="splitClose">Close</button></div></div>
   <div id="dockBk" hidden></div>
   <div id="cockpit" hidden role="dialog" aria-label="Cockpit view">
-    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><span class="dkb" id="dkb" role="group" aria-label="Dock position"><button type="button" class="ghost" data-dk="l" aria-label="Dock left" title="Dock left">◧</button><button type="button" class="ghost" data-dk="t" aria-label="Dock top" title="Dock top">⬒</button><button type="button" class="ghost" data-dk="b" aria-label="Dock bottom" title="Dock bottom">⬓</button><button type="button" class="ghost" data-dk="r" aria-label="Dock right" title="Dock right">◨</button></span><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
+    <div class="cp-bar"><div class="id" id="cpId"></div><div class="sp"></div><button type="button" class="ghost splb" id="splitBtn" aria-label="How to share the screen with ForeFlight">Split</button><span class="dkb" id="dkb" role="group" aria-label="Dock position"><button type="button" class="ghost" data-dk="l" aria-label="Dock left" title="Dock left">◧</button><button type="button" class="ghost" data-dk="t" aria-label="Dock top" title="Dock top">⬒</button><button type="button" class="ghost" data-dk="b" aria-label="Dock bottom" title="Dock bottom">⬓</button><button type="button" class="ghost" data-dk="r" aria-label="Dock right" title="Dock right">◨</button></span><button type="button" class="ghost" id="cpPrev" aria-label="Previous leg">‹ Leg</button><button type="button" class="ghost" id="cpLeg" aria-label="Next leg">Leg ›</button><button type="button" id="cpEdit">Edit</button></div>
     <div id="dockH" role="separator" aria-label="Drag to resize"></div>
     <div class="cp-body"><div class="phases" id="phases"></div><div class="dots" id="dots"></div></div>
   </div>
@@ -2480,6 +2497,9 @@ $('dkb').addEventListener('click',function(e){var b=e.target.closest('[data-dk]'
   DK.w=Math.round(Math.min(70,Math.max(15,v*100)));document.documentElement.style.setProperty('--dkw',DK.w)});
  function end(){if(drag){drag=false;dockSave()}}
  h.addEventListener('pointerup',end);h.addEventListener('pointercancel',end)})();
+$('splitBtn').addEventListener('click',function(){$('splitHelp').hidden=false});
+$('splitClose').addEventListener('click',function(){$('splitHelp').hidden=true});
+$('splitHelp').addEventListener('click',function(e){if(e.target===this)this.hidden=true});
 window.addEventListener('resize',dockApply);
 window.SW_dock=DK;dockApply();
 
