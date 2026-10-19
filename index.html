@@ -68,6 +68,8 @@ button.red{background:var(--red);color:#fff;border-color:var(--red)}
 .flights .fl .x{flex:0 0 auto;padding:4px 10px}
 .flights .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:var(--tide-soft)}
 .flights .tag.w{background:#b00020;color:#fff}
+.loadmid{display:inline-block;background:#b00020;color:#fff;font-weight:700;padding:1px 6px;border-radius:3px}
+select.loadmid{border-color:#b00020}
 .flights .fl.on .tag:not(.w){background:#fff;color:#14304f;font-weight:700}
 .flights details{margin-top:6px}
 .legs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -370,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 22:29 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Mon 19 Oct 2026 08:38 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -2213,6 +2215,9 @@ function planRender(M){
  if(Math.abs(tbB-tbN)>1)A.push({l:'info',t:'Total planned burn changed from '+f0(tbB)+' to '+f0(tbN)+' lb.'});
  var stt=state.status,dc=state.docs||{},plH=L.reduce(function(a,g){return a+g.hob},0),now=new Date(),sc=statusChecks(stt,plH,L.length,now);
  var hasCg=!!(state.cargo&&state.cargo.length),tr=!!dc.training,awbOk=hasCg||!!dc.nocargo,need=tr?[]:[['itin','Crew itinerary'],['awb','House airway bills'],['stat','Aircraft status sheet']],missing=need.filter(function(x){return x[0]=='awb'?!awbOk:!dc[x[0]]}).map(function(x){return x[1]});
+ (function(){var by={};(state.cargo||[]).forEach(function(x){if(+x.on>0){var k=state.route[+x.on]?state.route[+x.on].code:'stop '+x.on;(by[k]=by[k]||[]).push(x)}});
+  Object.keys(by).forEach(function(k){var g=by[k],kg=g.reduce(function(a,x){return a+(+x.kg||0)},0),nw=g.filter(function(x){return !(+x.kg>0)}).length;
+   A.push({l:'warn',t:'Cargo LOADS AT '+k+' (not SJU): '+g.map(function(x){return x.awb||'unnamed line'}).join(', ')+'; '+f0(kg)+' kg ('+f0(kg*KG)+' lb) added there'+(nw?'. '+nw+' line'+(nw>1?'s have':' has')+' NO WEIGHT entered yet: get it from the handler before departure':'')+'. Confirm weight and position against the paperwork.',s:'Cargo loads at '+k+': '+f0(kg*KG)+' lb'+(nw?' (weight missing)':'')+'.'})})})();
  discAlerts(state).forEach(function(x){A.push({l:'warn',t:x.t,s:x.s})});
  if(hasCg&&!dc.cbp&&!tr)A.push({l:'info',t:'Reminder: the signed CBP Gen Dec is brought to the aircraft by the handler once the cargo is loaded. It does not arrive by email.',s:'Reminder: handler brings the signed Gen Dec after loading.'});
  if(prop)A.push({l:'warn',t:'Itinerary is a proposed schedule, awaiting confirmation: '+state.itin.src+' Times, burn and fuel are planned from it.',s:'PROPOSED itinerary, awaiting confirmation.'});
@@ -2242,7 +2247,7 @@ function planRender(M){
   var st=R[c.off]?R[c.off].code:'?',tr=c.dest&&c.dest.toUpperCase()!==st,b0=bc[c.i];
   var d={kg:!!b0&&(+b0.kg||0)!==(+c.kg||0),on:!!b0&&b0.on!=c.on,off:!!b0&&b0.off!=c.off,dest:!!b0&&b0.dest!==c.dest,parm:!!b0&&String(b0.parm)!==String(c.parm)};
   var zone=c.a0==null?'at arm '+Math.round(c.arm):Math.round(c.a0)+' to '+Math.round(c.a1),ctr=Math.round(c.arm/10)*10;
-  o+='<tr>'+tdc('',d.off)+esc(st)+'</td>'+tdc('',!b0)+esc(c.awb)+'</td>'+tdc('',d.dest)+esc(c.dest)+'</td>'+tdc('n',d.kg)+f0(c.kg)+(d.kg?was(f0(b0.kg)):'')+'</td>'+tdc('n',d.kg)+f0(c.lb)+'</td><td>'+(tr?'<span class="xfer">Transfer to onward carrier</span>':'<span class="tag">Final</span>')+'</td>'+tdc('',d.on)+esc(R[c.on]?R[c.on].code:'?')+'</td>'+tdc('',d.parm)+zone+'</td>'+tdc('n',d.parm)+ctr+'</td><td>'+esc(c.note)+(!b0?' <span class="was">new line</span>':'')+'</td></tr>'});
+  o+='<tr>'+tdc('',d.off)+esc(st)+'</td>'+tdc('',!b0)+esc(c.awb)+'</td>'+tdc('',d.dest)+esc(c.dest)+'</td>'+tdc('n',d.kg)+f0(c.kg)+(d.kg?was(f0(b0.kg)):'')+'</td>'+tdc('n',d.kg)+f0(c.lb)+'</td><td>'+(tr?'<span class="xfer">Transfer to onward carrier</span>':'<span class="tag">Final</span>')+'</td>'+tdc('',d.on)+(c.on>0?'<span class="loadmid">LOADS AT '+esc(R[c.on]?R[c.on].code:'?')+'</span>':esc(R[c.on]?R[c.on].code:'?'))+'</td>'+tdc('',d.parm)+zone+'</td>'+tdc('n',d.parm)+ctr+'</td><td>'+esc(c.note)+(!b0?' <span class="was">new line</span>':'')+'</td></tr>'});
  if(!cs.length)o+='<tr><td colspan="10" class="sub">No cargo yet. Paste the airway bills or add lines with CHANGE ON THE FLY.</td></tr>';
  o+='<tr><th colspan="3">All cargo</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+(+c.kg||0)},0))+'</th><th class="n">'+f0(r.cargo.reduce(function(s,c){return s+c.lb},0))+'</th><th colspan="5"></th></tr></table>';
  $('off').innerHTML=o;
@@ -2629,7 +2634,7 @@ function editor(){
  h+='<div class="tabs"><button type="button" data-tab="cargo" class="'+(tab=='cargo'?'on':'')+'">Cargo</button><button type="button" data-tab="route" class="'+(tab=='route'?'on':'')+'">Route, times, and fuel</button><button type="button" data-tab="equip" class="'+(tab=='equip'?'on':'')+'">Standard equipment</button><button type="button" data-tab="set" class="'+(tab=='set'?'on':'')+'">Aircraft and fuel</button></div>';
  if(tab=='cargo'){
   h+='<div class="sc"><table><tr><th>House AWB</th><th>Final dest</th><th>kg</th><th>lb</th><th>Loaded at</th><th>Off at</th><th>Arm override (blank = auto)</th><th>Note</th><th></th></tr>';
-  draft.cargo.forEach(function(c,i){h+='<tr><td>'+inp('cargo.'+i+'.awb',c.awb,'t')+'</td><td>'+inp('cargo.'+i+'.dest',c.dest,'s')+'</td><td><input class="s" type="number" step="any" id="kg'+i+'" data-p="cargo.'+i+'.kg" data-t="n" value="'+(+c.kg||0).toFixed(2).replace(/\.?0+$/,'')+'"></td><td><input class="s" type="number" step="any" id="lb'+i+'" data-lb="'+i+'" value="'+((+c.kg||0)*KG).toFixed(1).replace(/\.0$/,'')+'"></td><td><select data-p="cargo.'+i+'.on" data-t="n">'+opts(c.on)+'</select></td><td><select data-p="cargo.'+i+'.off" data-t="n">'+opts(c.off)+'</select></td><td>'+inp('cargo.'+i+'.parm',c.parm,'s','n')+'</td><td>'+inp('cargo.'+i+'.note',c.note,'w')+'</td><td><button type="button" class="ghost" data-del="'+i+'">Remove</button></td></tr>'});
+  draft.cargo.forEach(function(c,i){h+='<tr><td>'+inp('cargo.'+i+'.awb',c.awb,'t')+'</td><td>'+inp('cargo.'+i+'.dest',c.dest,'s')+'</td><td><input class="s" type="number" step="any" id="kg'+i+'" data-p="cargo.'+i+'.kg" data-t="n" value="'+(+c.kg||0).toFixed(2).replace(/\.?0+$/,'')+'"></td><td><input class="s" type="number" step="any" id="lb'+i+'" data-lb="'+i+'" value="'+((+c.kg||0)*KG).toFixed(1).replace(/\.0$/,'')+'"></td><td><select class="'+(+c.on>0?'loadmid':'')+'" data-p="cargo.'+i+'.on" data-t="n">'+opts(c.on)+'</select></td><td><select data-p="cargo.'+i+'.off" data-t="n">'+opts(c.off)+'</select></td><td>'+inp('cargo.'+i+'.parm',c.parm,'s','n')+'</td><td>'+inp('cargo.'+i+'.note',c.note,'w')+'</td><td><button type="button" class="ghost" data-del="'+i+'">Remove</button></td></tr>'});
   h+='</table></div><div><button type="button" class="ghost" id="addc">Add cargo line</button></div><p class="note">Final dest different from the stop it comes off at shows as a transfer. Cargo loaded after the first stop goes into the space freed at its loading stop unless you enter an arm.</p>';
  }else if(tab=='equip'){
   var ew=0,em=0;draft.equip.forEach(function(e){ew+=(+e.lb||0);em+=(+e.lb||0)*(+e.arm||0)});
