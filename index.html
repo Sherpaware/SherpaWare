@@ -369,7 +369,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 21:56 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 22:11 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -1009,10 +1009,12 @@ function parseOne(text,routeCodes){
  // Trip number (JetLogistics trip code, e.g. A1BCDE) and booking number, for the flight log.
  var tm=/\bTrip\s*(?:#|No\.?|ID|Number)?\s*[:\-]?\s*([A-Z0-9]{5,8})\b/.exec(text);if(tm&&/[A-Z]/.test(tm[1])&&/\d/.test(tm[1]))out.tripNo=tm[1];
  var bm=/\bbooking\s*(?:#|No\.?|number)?\s*[:\-]?\s*#?(\d{3,8})\b/i.exec(text);if(bm)out.booking=bm[1];
+ var mw=/\b(\d{3})[ -][A-Z]{3}\s+(\d{8})\b/.exec(text),mk=/\b\d+\s+([\d,]*\.?\d+)\s*K\s+[\d,]*\.?\d+\s*K\b/.exec(text);
+ if(mw&&mk&&!occ.length&&/Air\s*Waybill/i.test(text))out.master={no:mw[1]+'-'+mw[2],kg:parseFloat(mk[1].replace(/,/g,''))};
  out.status=(typeof parseStatus=='function')?parseStatus(text):null;
  out.training=/^[ \t>*-]*(?:flight\s*type\s*[:\-]\s*)?(?:training|non[- ]?revenue|positioning|part\s*91|check\s*ride)(?:\s+(?:flight|leg|only))?[ \t.!*]*$/im.test(text);
  out.docs={itin:out.legs.length>0&&!out.proposed,awb:out.cargo.length>0,stat:!!out.status,cbp:/CBP/.test(text)&&/manifest|gen\s*dec/i.test(text)&&!out.status};
- if(!out.cargo.length&&!out.legs.length&&!out.status&&!out.training)out.warn.push('Nothing recognised. Look for house airway bill numbers (SWF-########) or "Leg 1: ..." itinerary lines.');
+ if(!out.cargo.length&&!out.legs.length&&!out.status&&!out.training&&!out.master)out.warn.push('Nothing recognised. Look for house airway bill numbers (SWF-########) or "Leg 1: ..." itinerary lines.');
  return out}
 function parsePaste(text,routeCodes){
  text=String(text||'');
@@ -1025,10 +1027,10 @@ function parsePaste(text,routeCodes){
    else if(!(o.kg>0&&o.how=='airway bill gross weight')&&c.kg>0&&(!o.kg||c.how=='airway bill gross weight')){o.kg=c.kg;o.how=c.how;if(c.dest)o.dest=c.dest}
    else if(!o.dest&&c.dest)o.dest=c.dest});
   if(r.legs.length&&(!out.legs.length||(out.proposed&&!r.proposed))){out.legs=r.legs;out.proposed=!!r.proposed;out.schedDay=r.schedDay||''}
-  if(r.status&&!out.status)out.status=r.status;
+  if(r.status&&!out.status)out.status=r.status;if(r.master&&!out.master)out.master=r.master;
   if(r.training)out.training=true;if(r.tripNo&&!out.tripNo)out.tripNo=r.tripNo;if(r.booking&&!out.booking)out.booking=r.booking;
   for(var k in r.docs)if(r.docs[k])out.docs[k]=true});
- if(!out.cargo.length&&!out.legs.length&&!out.status&&!out.training)out.warn.push('Nothing recognised.');
+ if(!out.cargo.length&&!out.legs.length&&!out.status&&!out.training&&!out.master)out.warn.push('Nothing recognised.');
  return out}
 //PARSE-END
 if(typeof module!='undefined')module.exports={parsePaste:parsePaste};
@@ -1828,7 +1830,7 @@ async function autoFetch(){
    if(A.docs[d.id])continue;
    var text='',err='';
    try{text=d.b64?await pdfToText(s2b(atob(d.b64))):(d.text||'');if(d.b64&&!text.trim())err='no text found (scan?)'}catch(e){err='could not be read'}
-   var p=parsePaste(text,[]),keep={legs:p.legs,cargo:p.cargo,date:p.date||'',proposed:!!p.proposed,schedDay:p.schedDay||'',status:p.status,training:!!p.training,docs:p.docs,tripNo:p.tripNo||'',booking:p.booking||''};
+   var p=parsePaste(text,[]),keep={legs:p.legs,cargo:p.cargo,date:p.date||'',proposed:!!p.proposed,schedDay:p.schedDay||'',status:p.status,master:p.master||null,training:!!p.training,docs:p.docs,tripNo:p.tripNo||'',booking:p.booking||''};
    A.docs[d.id]={name:d.name,sent:d.sent,rcv:d.rcv,from:d.from,subject:d.subject,err:err,r:keep};n++}}
  var cut=Date.now()-10*86400000;Object.keys(A.docs).forEach(function(k){if((A.docs[k].sent||0)<cut)delete A.docs[k]});
  return n}
@@ -1840,19 +1842,22 @@ function autoPlan(){
   var date=r.date||(r.proposed&&r.schedDay?autoWeekday(r.schedDay,d.sent):'');if(!date||date<today)return;
   var conf=!r.proposed,t=T[date];
   if(!t||(conf&&!t.conf)||(conf===t.conf))T[date]={date:date,legs:r.legs,conf:conf,names:[d.name],tripNo:r.tripNo,booking:r.booking,flt:r.legs.map(function(l){return l.flt}).filter(Boolean)}});
- var dates=Object.keys(T).sort(),status=null,cbp=false,cargo={},loose=[];
+ var dates=Object.keys(T).sort(),status=null,cbp=false,cargo={},loose=[],disc={},master=null;
  docs.forEach(function(d){var r=d.r;
   if(r.status&&(!status||(r.status.asOf||'')>(status.asOf||'')))status=r.status;
+  if(r.master&&r.master.kg>0)master=r.master;
   // CBP Gen Dec is never ticked automatically: an email that only ASKS for it mentions the same words. The pilot ticks it.
   (r.cargo||[]).forEach(function(c){var o=cargo[c.awb];
+   if(o&&o.kg>0&&c.kg>0&&Math.abs(o.kg-c.kg)>0.5)disc[c.awb]='Weights do not agree for '+c.awb+': '+f0(o.kg)+' kg in '+o.from+', '+f0(c.kg)+' kg in '+d.name+'.';
    if(!o)cargo[c.awb]={awb:c.awb,kg:c.kg,how:c.how,dest:c.dest,from:d.name};
    else if(!(o.kg>0&&o.how=='airway bill gross weight')&&c.kg>0&&(!o.kg||c.how=='airway bill gross weight')){o.kg=c.kg;o.how=c.how;if(c.dest)o.dest=c.dest}
    else if(!o.dest&&c.dest)o.dest=c.dest})});
- dates.forEach(function(k){var t=T[k];t.stops=[{code:t.legs[0].from}].concat(t.legs.map(function(l){return {code:l.to}}));t.cargo=[]});
+ dates.forEach(function(k){var t=T[k];t.disc=[];t.stops=[{code:t.legs[0].from}].concat(t.legs.map(function(l){return {code:l.to}}));t.cargo=[]});
  Object.keys(cargo).forEach(function(k){var c=cargo[k],put=false;
-  for(var i=0;i<dates.length&&!put;i++){var t=T[dates[i]],o=offFor(t.stops,c.dest);if(c.dest&&o>=1){t.cargo.push({awb:c.awb,dest:c.dest,kg:c.kg>0?Math.round(c.kg*10)/10:0,on:0,off:o,parm:'',note:'From email: '+c.from});put=true}}
+  for(var i=0;i<dates.length&&!put;i++){var t=T[dates[i]],o=offFor(t.stops,c.dest);if(c.dest&&o>=1){t.cargo.push({awb:c.awb,dest:c.dest,kg:c.kg>0?Math.round(c.kg*10)/10:0,on:0,off:o,parm:'',note:'From email: '+c.from});if(disc[c.awb])t.disc.push(disc[c.awb]);put=true}}
   if(!put)loose.push(c.awb+(c.dest?' ('+c.dest+')':''))});
- var plans=dates.map(function(k,i){var t=T[k];t.status=status;t.cbp=cbp&&i===0;return t});
+ var mt=dates.filter(function(k){return T[k].cargo.length})[0];
+ var plans=dates.map(function(k,i){var t=T[k];t.status=status;t.master=(k===mt)?master:null;t.cbp=cbp&&i===0;return t});
  return {plans:plans,loose:loose,docs:docs}}
 
 function autoMake(P){
@@ -1863,12 +1868,17 @@ function autoMake(P){
   if(i<Lg.length){s.dep=Lg[i].dep;if(Lg[i].flt)s.flt=Lg[i].flt}
   if(i===0&&s.code==='SJU')s.fuel=1;
   rt.push(s)}
- t.route=rt;t.cargo=clone(P.cargo);t.status=P.status?clone(P.status):null;
+ t.route=rt;t.cargo=clone(P.cargo);if(P.master)t.master=P.master;if(P.disc&&P.disc.length)t.disc=P.disc.slice();t.status=P.status?clone(P.status):null;
  t.docs={itin:P.conf,awb:P.cargo.length>0,stat:!!P.status,cbp:!!P.cbp};
  if(P.tripNo)t.tripNo=P.tripNo;if(P.booking)t.booking=P.booking;
  t.itin={status:'proposed',src:'Built automatically from email paperwork ('+P.names.join(', ')+'). '+(P.conf?'Crew itinerary received; segments not confirmed by the app.':'Proposed schedule only.')+(est.length?' Distances estimated (great circle) for '+est.join(', ')+'.':'')+' Fuel stops: SJU only. Review everything before use.'};
  return t}
 
+// Weights that disagree between documents. Used by the Alerts list and the Paperwork panel.
+function discAlerts(s){var out=[],m=s&&s.master,c=(s&&s.cargo)||[];
+ if(m&&m.kg>0&&c.length){var h=c.reduce(function(a,x){return a+(+x.kg||0)},0),d=Math.abs(m.kg-h);
+  if(d>1)out.push({t:'Weights do not agree: master airway bill '+m.no+' says '+f0(m.kg)+' kg ('+f0(m.kg*KG)+' lb); the house bills on this trip add up to '+f0(h)+' kg ('+f0(h*KG)+' lb), a difference of '+f0(d)+' kg ('+f0(d*KG)+' lb). Check which is right before loading.',s:'Master AWB and house total differ by '+f0(d)+' kg.'})}
+ ((s&&s.disc)||[]).forEach(function(x){out.push({t:x,s:x})});return out}
 function autoMissing(s){var m=[];
  if(!s.itin||s.itin.status==='proposed')m.push('Itinerary not confirmed');
  if(!s.docs||!s.docs.awb||!(s.cargo||[]).length)m.push('Airway bills');
@@ -1905,6 +1915,8 @@ function autoApply(plan){
   if(P.status&&(!s.status||(P.status.asOf||'')>(s.status.asOf||''))){s.status=clone(P.status);s.docs.stat=true;add.push('status sheet')}
   if(P.cbp&&!s.docs.cbp){s.docs.cbp=true;add.push('CBP Gen Dec')}
   if(s.cargo.length&&!s.docs.awb){s.docs.awb=true}
+  if(P.master&&!s.master){s.master=P.master;if(cur)touchedCur=true}
+  if(JSON.stringify(P.disc||[])!==JSON.stringify(s.disc||[])){s.disc=(P.disc||[]).slice();if(cur)touchedCur=true}
   if(P.tripNo&&!s.tripNo)s.tripNo=P.tripNo;if(P.booking&&!s.booking)s.booking=P.booking;
   if(add.length){E.log.unshift(note('New paperwork added automatically: '+add.join(', ')));if(cur)touchedCur=true;ST.lib[exId].ts=Date.now()}
   out.push({date:P.date,id:exId,res:add.length?'added':'kept',added:add,missing:autoMissing(s)})});
@@ -1935,11 +1947,11 @@ function autoPanel(){
   h+='<div class="row"><button type="button" class="red" id="anow">Check now</button><span class="sub" id="amsg">'+(l?(l.err?'<span class="warn">'+esc(l.err)+'</span> ':'')+'Last check '+autoHm(l.at)+' AST'+(l.n?' · '+l.n+' new document'+(l.n===1?'':'s'):' · nothing new'):'Not checked yet.')+'</span></div>';
   var ts=(l&&l.trips)||[];
   if(ts.length){h+='<div class="sc"><table><tr><th>Date</th><th>Draft</th><th>Still missing</th></tr>'+ts.map(function(t){var s=(ST.lib[t.id]&&ST.lib[t.id].t.state)||{},rt=(s.route||[]).map(function(r){return r.code}).filter(Boolean).join(' → ');
-    return '<tr><td><b>'+esc(fdate(t.date))+'</b></td><td>'+esc(rt)+'<br><span class="tag'+(t.res==='new'||t.res==='updated'||t.res==='added'?' w':'')+'">'+esc({new:'NEW DRAFT',updated:'UPDATED',added:'ADDED TO YOUR TRIP',kept:'NO CHANGE',unchanged:'NO CHANGE'}[t.res]||t.res)+'</span> <button type="button" class="ghost" data-aopen="'+esc(t.id)+'">Open</button></td><td>'+(t.missing.length?t.missing.map(esc).join('<br>'):'Nothing')+'</td></tr>'}).join('')+'</table></div>'}
+    return '<tr><td><b>'+esc(fdate(t.date))+'</b></td><td>'+esc(rt)+'<br><span class="tag'+(t.res==='new'||t.res==='updated'||t.res==='added'?' w':'')+'">'+esc({new:'NEW DRAFT',updated:'UPDATED',added:'ADDED TO YOUR TRIP',kept:'NO CHANGE',unchanged:'NO CHANGE'}[t.res]||t.res)+'</span> <button type="button" class="ghost" data-aopen="'+esc(t.id)+'">Open</button></td><td>'+(t.missing.length?t.missing.map(esc).join('<br>'):'Nothing')+discAlerts(s).map(function(x){return '<br><span class="warn">'+esc(x.s)+'</span>'}).join('')+'</td></tr>'}).join('')+'</table></div>'}
   else h+='<p class="hint">No upcoming trip could be built yet. A trip needs a crew itinerary or a proposed schedule.</p>';
   if(l&&l.loose&&l.loose.length)h+='<p class="note warn">Airway bills received but not matched to a trip: '+l.loose.map(esc).join(', ')+'. They will attach when the itinerary arrives, or add them with Paste.</p>';
   var dl=Object.keys(A.docs).map(function(k){return A.docs[k]}).sort(function(a,b){return b.sent-a.sent}).slice(0,12);
-  if(dl.length)h+='<details><summary class="hint">Documents received ('+Object.keys(A.docs).length+')</summary>'+dl.map(function(d){var r=d.r||{},w=[];if(r.legs&&r.legs.length)w.push(r.proposed?'schedule':'itinerary');if(r.cargo&&r.cargo.length)w.push(r.cargo.length+' AWB');if(r.status)w.push('status sheet');if(r.docs&&r.docs.cbp)w.push('CBP');
+  if(dl.length)h+='<details><summary class="hint">Documents received ('+Object.keys(A.docs).length+')</summary>'+dl.map(function(d){var r=d.r||{},w=[];if(r.legs&&r.legs.length)w.push(r.proposed?'schedule':'itinerary');if(r.cargo&&r.cargo.length)w.push(r.cargo.length+' AWB');if(r.status)w.push('status sheet');if(r.master)w.push('master AWB '+r.master.kg+' kg');if(r.docs&&r.docs.cbp)w.push('CBP');
    return '<div class="sub">'+esc(autoIso(d.sent).slice(5))+' '+autoHm(d.sent)+' · '+esc(d.name)+' · '+(w.length?w.join(', '):'<span class="warn">nothing recognised</span>')+(d.err?' · <span class="warn">'+esc(d.err)+'</span>':'')+'</div>'}).join('')+'</details>';
   h+='<div class="row" style="margin-top:10px"><button type="button" class="ghost" id="apaste">Paste or drop files instead</button><button type="button" class="ghost" id="akeyx">Change key</button></div>'}
  $('dlg').innerHTML=h;$('x').onclick=closeModal;
@@ -2200,6 +2212,7 @@ function planRender(M){
  if(Math.abs(tbB-tbN)>1)A.push({l:'info',t:'Total planned burn changed from '+f0(tbB)+' to '+f0(tbN)+' lb.'});
  var stt=state.status,dc=state.docs||{},plH=L.reduce(function(a,g){return a+g.hob},0),now=new Date(),sc=statusChecks(stt,plH,L.length,now);
  var hasCg=!!(state.cargo&&state.cargo.length),tr=!!dc.training,awbOk=hasCg||!!dc.nocargo,need=tr?[]:[['itin','Crew itinerary'],['awb','House airway bills'],['stat','Aircraft status sheet']],missing=need.filter(function(x){return x[0]=='awb'?!awbOk:!dc[x[0]]}).map(function(x){return x[1]});
+ discAlerts(state).forEach(function(x){A.push({l:'warn',t:x.t,s:x.s})});
  if(hasCg&&!dc.cbp&&!tr)A.push({l:'info',t:'Reminder: the signed CBP Gen Dec is brought to the aircraft by the handler once the cargo is loaded. It does not arrive by email.',s:'Reminder: handler brings the signed Gen Dec after loading.'});
  if(prop)A.push({l:'warn',t:'Itinerary is a proposed schedule, awaiting confirmation: '+state.itin.src+' Times, burn and fuel are planned from it.',s:'PROPOSED itinerary, awaiting confirmation.'});
  var SHORT={'Crew itinerary':'itinerary','House airway bills':'airway bills','Aircraft status sheet':'status sheet','CBP stamped Gen Dec / manifest':'CBP Gen Dec'};
