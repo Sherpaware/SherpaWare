@@ -372,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Mon 19 Oct 2026 08:38 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Mon 19 Oct 2026 08:59 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -917,7 +917,15 @@ function calc(st){
   var dmv=0;// signed cargo moment change that restores the margin, lb-in (+ = shift aft, - = shift forward)
   if(mF<buf){var dm=(buf-mF)*wt;dmv=dm;adv='Shift aft: about '+Math.round(dm)+' lb-in, or '+Math.round(dm/60)+' lb moved 60 in aft, to restore a '+buf+' in margin'}
   else if(mA<buf){var dm2=(buf-mA)*wt;dmv=-dm2;adv='Shift forward: about '+Math.round(dm2)+' lb-in, or '+Math.round(dm2/60)+' lb moved 60 in forward, to restore a '+buf+' in margin'}
-  legs.push({i:i,from:R[i].code,to:R[i+1].code,dep:R[i].dep,arr:R[i+1].arr,nm:R[i+1].nm,block:block,hob:hob,burn:burn,xb:xb,manual:manual,mF:mF,mA:mA,mU:mU,adv:adv,dm:dmv,cm:cm,cwOvr:cwO||offO||onO,fuelOvr:!!(postO||upO),ctrOv:ctrOv?+shv:null,need:need,cw:cw,zfw:zfw,maxRamp:maxRamp,ramp:ramp,up:up,minUp:minUp,skip:skip,backup:backup,limited:(!skip&&!manual&&ramp<S.cap-0.5&&maxRamp<S.cap-0.5),limitBy:limBy,toCap:toCap,toBy:toBy,ldCap:ldCap,ldBy:ldBy,apgCut:Math.max(0,STR-maxRamp),tof:tof,tow:tow,cgT:cgT,fwdT:fwdLim(tow),lf:lf,lw:lw,cgL:cgL,fwdL:fwdLim(lw),cgU:cgU,cgUL:cgUL,comp:comp,flags:fl,nOn:on.length});
+  // Through-cargo shift advisory: where each remaining stop's cargo should sit (station, nearest 10) to restore the CG margin.
+  var shf=null;
+  if(Math.abs(dmv)>0.5&&cw>0&&on.length){
+   var scl=cwL>0?cw/cwL:1,oc=on.reduce(function(a,c){return a+c.lb*c.arm},0)*scl/cw,dl=(cm+dmv)/cw-cm/cw,gp={};
+   on.forEach(function(c){var k=c.off,w=c.lb*scl;if(!gp[k])gp[k]={off:k,stop:(R[k]||{}).code||'?',lb:0,m:0};gp[k].lb+=w;gp[k].m+=w*c.arm});
+   var items=Object.keys(gp).map(function(k){var g2=gp[k],now=g2.m/g2.lb+(cm/cw-oc),to=now+dl,tr=Math.max(S.lo,Math.min(S.hi,to));return {stop:g2.stop,off:g2.off,lb:Math.round(g2.lb),now:Math.round(now/10)*10,to:Math.round(tr/10)*10,clamped:Math.abs(tr-to)>0.5}}).sort(function(a,b){return a.off-b.off});
+   var edge=(dmv>0&&items.every(function(x){return x.to>=Math.round(S.hi/10)*10}))||(dmv<0&&items.every(function(x){return x.to<=Math.round(S.lo/10)*10}));
+   shf={dir:dmv>0?'aft':'forward',cur:Math.round(cm/cw/10)*10,tgt:Math.round((cm+dmv)/cw/10)*10,mF:mF,mA:mA,items:items,edge:edge,out:cgT<fwdLim(tow)||cgT>AFT||cgL<fwdLim(lw)||cgL>AFT}}
+  legs.push({shf:shf,i:i,from:R[i].code,to:R[i+1].code,dep:R[i].dep,arr:R[i+1].arr,nm:R[i+1].nm,block:block,hob:hob,burn:burn,xb:xb,manual:manual,mF:mF,mA:mA,mU:mU,adv:adv,dm:dmv,cm:cm,cwOvr:cwO||offO||onO,fuelOvr:!!(postO||upO),ctrOv:ctrOv?+shv:null,need:need,cw:cw,zfw:zfw,maxRamp:maxRamp,ramp:ramp,up:up,minUp:minUp,skip:skip,backup:backup,limited:(!skip&&!manual&&ramp<S.cap-0.5&&maxRamp<S.cap-0.5),limitBy:limBy,toCap:toCap,toBy:toBy,ldCap:ldCap,ldBy:ldBy,apgCut:Math.max(0,STR-maxRamp),tof:tof,tow:tow,cgT:cgT,fwdT:fwdLim(tow),lf:lf,lw:lw,cgL:cgL,fwdL:fwdLim(lw),cgU:cgU,cgUL:cgUL,comp:comp,flags:fl,nOn:on.length});
   arrFuel=lf;
  }
  return {legs:legs,cargo:base,tot:tot,eqW:eqW,eqM:eqM};
@@ -2207,7 +2215,9 @@ function planRender(M){
   }
   if(g.i>0&&g.skip&&b&&!b.skip)A.push({lg:g.i,l:'info',t:'Fuel stop at '+g.from+' is no longer needed.'});
   if(g.limited&&g.limitBy.indexOf('APG')!==0){var bl2=b&&b.limited;A.push({lg:g.i,l:'warn',t:'Fuel at '+g.from+' limited to '+f0(g.ramp)+' lb ramp fuel, '+f0(S.cap-g.ramp)+' lb below full tanks ('+f0(S.cap)+'), by the '+limTxt(g.limitBy)+(bl2?'':(b?' (new)':''))+'.'})}
-  g.flags.forEach(function(fl){if(/^Over APG/.test(fl))return;
+  if(g.shf){var sh=g.shf,tx=sh.items.map(function(x){return x.stop+' cargo '+f0(x.lb)+' lb to FS '+x.to+(x.clamped?' (limit of hold)':'')}).join('; ');
+   A.push({lg:g.i,l:sh.out?'bad':'warn',t:leg+': '+(sh.out?g.flags.filter(function(x){return /^CG out (T\/O|landing)$/.test(x)}).join(', '):'CG margin under '+(S.buf==null?1:+S.buf)+' in')+(g.adv?'. '+g.adv:'')+'. Cargo on board is now about FS '+sh.cur+'. Shift cargo '+sh.dir+': '+tx+(sh.edge?'. Not enough room in the hold to fix by moving cargo; reduce fuel or cargo.':'')+'. Plan figures assume this move; official W&B governs.',s:'Shift cargo '+sh.dir+': '+tx+'.'})}
+  g.flags.forEach(function(fl){if(/^Over APG/.test(fl)||(g.shf&&/^CG out (T\/O|landing)$/.test(fl)))return;
    var cg=/^CG out/.test(fl);A.push({lg:g.i,l:fl==='Check times'?'warn':'bad',t:leg+': '+fl+(cg&&g.adv?'. '+g.adv:'')+'.',s:fl+(cg&&g.adv?': '+advShort(g.adv):'')+'.'})});
  });
  M.legs.forEach(function(Lg){Lg.alerts.forEach(function(a){if(a.need)return;var x=clone(a);x.lg=Lg.i;A.push(x)})});
@@ -2457,7 +2467,7 @@ function renderCockpit(){
   '<div class="k fz">'+NUM('glob:fob0','Actual fuel on board ·<br>before uplift (lb)',fob)+'<div class="cmt">Add to ramp '+fmt(g.ramp)+': <b>'+gal(Math.max(0,g.ramp-fob))+'</b>'+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):'')+'</div></div>'):
   (g.skip?K('Fuel uplift','NONE','Arrive '+esc(g.from)+' with '+fmt(g.ramp)+' lb, no uplift needed'):K('Fuel uplift',fmt(g.up),fmt(g.up/dn)+' gal added at '+esc(g.from)+' · ramp '+fmt(g.ramp)+(g.limited&&!g.manual?' · LIMITED by '+esc(limTxt(g.limitBy)):''),g.limited&&!g.manual?'warn':''));
  var shT='';if(gn&&gn.cw>0&&(Math.abs(gn.dm||0)>0.5||gn.ctrOv!=null)){var cur=gn.cm/gn.cw,tgt=(gn.cm+gn.dm)/gn.cw,sugg=Math.round(tgt/10)*10,ov=gn.ctrOv!=null;
-  shT='<div class="k shk'+(ov?'':' hot')+'" data-init="'+sugg+'"><div class="l">'+(ov?'Cargo center<br>applied':'Move cargo<br>center to')+'</div><div class="shrow"><span class="fs">FS</span><input type="text" inputmode="none" data-kp="1" autocomplete="off" id="shIn" data-leg="'+gn.i+'" value="'+Math.round(ov?gn.ctrOv:sugg)+'" aria-label="New cargo center station"><button type="button" class="shgo" data-shgo="'+gn.i+'">'+(ov?'Update':'Apply')+'</button>'+(ov?'<button type="button" class="shgo" data-shclr="'+gn.i+'">Clear</button>':'')+'</div><div class="s">'+(ov?'Plan now uses cargo center FS '+Math.round(gn.ctrOv)+' for leg '+(L.i+2)+'. Clear to return to the loaded positions.':'Now FS '+Math.round(cur/10)*10+' · '+(gn.dm>0?'shift aft':'shift forward')+' to restore the CG margin for leg '+(L.i+2)+'. Edit the station if you moved it differently, then Apply.')+'</div></div>'}
+  shT='<div class="k shk'+(ov?'':' hot')+'" data-init="'+sugg+'"><div class="l">'+(ov?'Cargo center<br>applied':'Move cargo<br>center to')+'</div><div class="shrow"><span class="fs">FS</span><input type="text" inputmode="none" data-kp="1" autocomplete="off" id="shIn" data-leg="'+gn.i+'" value="'+Math.round(ov?gn.ctrOv:sugg)+'" aria-label="New cargo center station"><button type="button" class="shgo" data-shgo="'+gn.i+'">'+(ov?'Update':'Apply')+'</button>'+(ov?'<button type="button" class="shgo" data-shclr="'+gn.i+'">Clear</button>':'')+'</div><div class="s">'+(ov?'Plan now uses cargo center FS '+Math.round(gn.ctrOv)+' for leg '+(L.i+2)+'. Clear to return to the loaded positions.':'Now FS '+Math.round(cur/10)*10+' · '+(gn.dm>0?'shift aft':'shift forward')+' to restore the CG margin for leg '+(L.i+2)+'. '+(gn.shf?gn.shf.items.map(function(x){return esc(x.stop)+' '+fmt(x.lb)+' lb → FS '+x.to}).join(' · ')+'. ':'')+'Edit the station if you moved it differently, then Apply.')+'</div></div>'}
  var preV=gn&&ovm('fobPre',gn.i)?+state.fobPre[gn.i]:null,postV=gn&&ovm('fobPost',gn.i)?+state.fobPost[gn.i]:null,upMan=gn&&gn.manual&&ovm('upOv',gn.i)&&postV==null;
  var preT=gn?OVT('fobPre',gn.i,'Landing fuel on board · '+esc(g.to)+' (lb)',preV,preV==null?'Plan on arrival '+fmt(g.lf)+' lb · enter the actual to set the uplift':'Plan on arrival '+fmt(g.lf)+' lb · actual entered',  'enter',preV!=null):'';
  var fuelD=gn?OVT('upOv',gn.i,'Fuel uplift · '+esc(g.to)+' (lb)',gn.skip&&postV==null&&!upMan?null:gn.up,(gn.skip&&!upMan?'Depart '+esc(g.to)+' with '+fmt(gn.ramp)+' lb, no uplift needed · tap NONE to enter one':fmt(gn.up/dn)+' gal added at '+esc(g.to)+' · ramp '+fmt(gn.ramp)+(gn.limited&&!gn.manual?' · LIMITED by '+esc(limTxt(gn.limitBy)):'')+(preV==null?' · from PLANNED arrival fuel '+fmt(g.lf)+' lb':' · from ACTUAL arrival fuel')+(upMan?' · MANUAL':'')),gn.skip?'NONE':'',upMan):K('Fuel uplift · '+esc(g.to),'—','Last leg · no further departure');
