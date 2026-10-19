@@ -68,6 +68,7 @@ button.red{background:var(--red);color:#fff;border-color:var(--red)}
 .flights .fl .x{flex:0 0 auto;padding:4px 10px}
 .flights .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;background:var(--tide-soft)}
 .flights .tag.w{background:#b00020;color:#fff}
+.flights .fl.on .tag:not(.w){background:#fff;color:#14304f;font-weight:700}
 .flights details{margin-top:6px}
 .legs{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .leg{display:inline-flex;align-items:center;border:1.5px solid var(--rule);border-radius:4px;overflow:hidden;font:700 16px var(--f-label);letter-spacing:.05em}
@@ -369,7 +370,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 22:11 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Sun 18 Oct 2026 22:29 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
