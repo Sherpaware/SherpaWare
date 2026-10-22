@@ -372,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 09:54 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 12:17 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -450,6 +450,7 @@ body.kpopen .ph{padding-bottom:330px}
           <summary>Calculation settings</summary>
           <div class="grid" style="margin-top:10px">
             <div><label for="g_mode">APG temperature rows</label><select id="g_mode" data-c="glob:mode"><option value="interp">Interpolate</option><option value="next">Next higher row</option></select></div>
+            <div><label for="g_wat">AFM climb limit (WAT, SB.6.2 p32)</label><select id="g_wat" data-c="glob:wat"><option value="on">Binding: limits take-off weight</option><option value="adv">Advisory: shown, does not limit</option></select></div>
             <div><label for="g_rpm">ICC prop RPM</label><select id="g_rpm" data-c="glob:rpm"><option>1200</option><option>1300</option><option selected>1400</option></select></div>
             <div><label for="g_lapse">ICC lapse rate °C / 1000 ft</label><select id="g_lapse" data-c="glob:lapse"><option value="2" selected>2.0 (standard)</option><option value="3">3.0 (dry adiabatic)</option></select></div>
             <div><label for="g_cai">Cruise anti-icing</label><select id="g_cai" data-c="glob:cai"><option value="0">Off</option><option value="1">On</option></select></div>
@@ -661,6 +662,26 @@ var TOLD = (function () {
     return { head: head, cross: cross, magDir: magDir, headGust: headGust };
   }
 
+
+  // ---------- AFM climb limit (WAT): Doc SB.6.2 Section 5 page 32, 15 deg flaps, RTOP ----------
+  // Max take-off weight (lb) by pressure altitude (rows -1000..8000 ft, 500 ft) and OAT (cols -40..50 C, 5 C).
+  // null = beyond ISA+35 (not charted). Digitized 22 Oct 2026; engine anti-ice ON: add 4 C (AFM note 1).
+  var WAT15 = { alts: [-1000, -500, 0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000], temps: [-40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50], w: [[25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25430, 25220, 25000, 24790, 24580, 24360, 24020, 23580, 23130], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25540, 25320, 25100, 24880, 24660, 24440, 24220, 23920, 23470, 23020], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25420, 25200, 24980, 24760, 24540, 24320, 24090, 23800, 23350, 22910], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25530, 25300, 25080, 24860, 24640, 24420, 24190, 23970, 23690, 23250, 22800], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25600, 25420, 25190, 24960, 24740, 24510, 24290, 24060, 23830, 23590, 23140, 22680], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25520, 25300, 25070, 24850, 24620, 24400, 24170, 23950, 23720, 23460, 23010, 22570], [25600, 25600, 25600, 25600, 25600, 25600, 25600, 25400, 25180, 24950, 24720, 24490, 24270, 24040, 23810, 23580, 23260, 22820, 22380], [25600, 25600, 25600, 25600, 25600, 25600, 25490, 25270, 25040, 24810, 24580, 24350, 24120, 23890, 23660, 23220, 22780, 22340, 21900], [25600, 25600, 25600, 25600, 25600, 25530, 25300, 25070, 24840, 24610, 24380, 24150, 23920, 23610, 23180, 22740, 22300, 21870, 21430], [25600, 25600, 25600, 25600, 25560, 25330, 25100, 24870, 24650, 24420, 24190, 23960, 23570, 23130, 22690, 22250, 21810, 21370, 20930], [25600, 25600, 25600, 25600, 25370, 25140, 24910, 24680, 24450, 24220, 23860, 23420, 22990, 22550, 22120, 21690, 21250, 20820, 20380], [25600, 25600, 25600, 25410, 25180, 24960, 24730, 24480, 24160, 23710, 23280, 22850, 22420, 21990, 21550, 21120, 20700, 20300, 19890], [25600, 25600, 25440, 25220, 25000, 24740, 24430, 23990, 23550, 23120, 22690, 22270, 21850, 21420, 21000, 20580, 20160, 19760, 19370], [25600, 25470, 25270, 25040, 24630, 24190, 23730, 23300, 22880, 22470, 22050, 21630, 21220, 20800, 20380, 19970, 19560, 19150, 18770], [25480, 25220, 24780, 24330, 23890, 23460, 23040, 22620, 22210, 21800, 21380, 20980, 20580, 20170, 19760, 19350, 18940, 18530, 18130], [24920, 24470, 24010, 23580, 23160, 22760, 22340, 21930, 21530, 21120, 20730, 20330, 19950, 19540, 19140, 18710, 18300, 17900, null], [24130, 23690, 23260, 22850, 22440, 22030, 21620, 21230, 20830, 20450, 20060, 19670, 19300, null, null, null, null, null, null], [23300, 22890, 22470, 22060, 21660, 21270, 20880, 20510, null, null, null, null, null, null, null, null, null, null, null], [22480, 22090, 21670, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]] };
+  function afmWat15(pa, oat, antiIce) {
+    if (pa == null || oat == null || isNaN(pa) || isNaN(oat)) return { error: "Need pressure altitude and OAT" };
+    var t = oat + (antiIce ? 4 : 0), A = WAT15.alts, Tt = WAT15.temps;
+    if (pa > A[A.length - 1]) return { error: "Above 8,000 ft (chart limit)" };
+    var a = Math.max(pa, A[0]), ba = bracket(A, a), bt = bracket(Tt, t);
+    if (!bt) return { error: "OAT outside chart (-40 to 50 C)" };
+    function at(ia, it) { return WAT15.w[it][ia]; }
+    var c = [at(ba[0], bt[0]), at(ba[1], bt[0]), at(ba[0], bt[1]), at(ba[1], bt[1])];
+    if (c.some(function (v) { return v == null; })) return { error: "Beyond ISA+35 (outside the AFM chart)" };
+    var fa = A[ba[1]] === A[ba[0]] ? 0 : (a - A[ba[0]]) / (A[ba[1]] - A[ba[0]]);
+    var ft = Tt[bt[1]] === Tt[bt[0]] ? 0 : (t - Tt[bt[0]]) / (Tt[bt[1]] - Tt[bt[0]]);
+    var lo = c[0] + (c[1] - c[0]) * fa, hi = c[2] + (c[3] - c[2]) * fa;
+    return { value: Math.min(STRUCT_TOW, Math.floor(lo + (hi - lo) * ft)) };
+  }
+
   // ---------- APG takeoff ----------
   // mode: "interp" (linear between rows) or "next" (next higher temperature row)
   function apgTakeoff(rw, oat, opts) {
@@ -697,6 +718,13 @@ var TOLD = (function () {
       { k: "Climb limit", v: climb },
       { k: "Structural max takeoff", v: STRUCT_TOW }
     ];
+    if (opts.pa != null && !isNaN(opts.pa)) {
+      var wat = afmWat15(opts.pa, oat, opts.antiIce);
+      res.afmWat = wat;
+      if (wat.value != null && !opts.watAdvisory) limits.push({ k: "AFM climb limit (WAT)", v: wat.value });
+      else if (wat.value != null) { wat.advisory = true; if (wat.value < Math.min.apply(null, limits.map(function (l) { return l.v; }))) res.warnings.push("AFM climb limit (WAT) " + wat.value + " lb is below the APG limit (advisory setting)."); }
+      else res.warnings.push("AFM climb limit (WAT): " + wat.error);
+    }
     var mv = Math.min.apply(null, limits.map(function (l) { return l.v; }));
     res.limits = limits; res.mtow = mv; res.climb = climb;
     res.limitedBy = limits.filter(function (l) { return l.v === mv; }).map(function (l) { return l.k; }).join(" and ");
@@ -781,8 +809,12 @@ var TOLD = (function () {
   var SPD = {
     toW: [18000, 19000, 20000, 21000, 22000, 23000, 24000, 25000, 25600],
     f10: { VR: [87, 88, 90, 93, 95, 98, 100, 103, 104], V2: [88, 89, 92, 94, 97, 99, 101, 104, 105], V5: [91, 93, 96, 98, 101, 103, 105, 108, 109] },
-    f15: { VR: [86, 86, 86, 88, 91, 93, 95, 97, 98], V2: [88, 88, 88, 89, 92, 94, 96, 98, 98] },
-    climb2: [124, 124, 124, 126, 128, 130, 132, 134, 135],
+    // Flaps 15: AFM Doc SB.6.2 Section 5 page 25 (digitized 22 Oct 2026), rounded up to the knot.
+    f15: { W: [18000, 18500, 19000, 19500, 20000, 20500, 21000, 21500, 22000, 22500, 23000, 23500, 24000, 24500, 25000, 25500, 25600],
+      VR: [86.5, 86.5, 86.5, 86.5, 87.7, 88.8, 90.0, 91.1, 92.3, 93.4, 94.6, 95.8, 96.9, 98.1, 99.2, 100.4, 100.6],
+      V2: [88.0, 88.0, 88.0, 88.2, 89.2, 90.2, 91.3, 92.3, 93.3, 94.4, 95.4, 96.5, 97.5, 98.5, 99.6, 100.6, 100.8],
+      climb2: [124.0, 124.0, 124.0, 124.3, 125.3, 126.3, 127.4, 128.4, 129.4, 130.5, 131.5, 132.5, 133.6, 134.6, 135.6, 136.7, 136.9] },  // climb2 = AFM p25 two-engine en-route climb, flaps 0 (chart starts at 19,370 lb; 124 kt below)
+    climb2: [124, 124, 124, 126, 128, 130, 132, 134, 135],  // QRH, used for flaps 10
     // Flaps 0° maneuvering speed: BTA V-speed cards (Doc SD3-60 V-speed cards 65AR), not in QRH P-1.
     man0: [132, 136, 140, 144, 149, 153, 157, 160, 161],
     ldW: [18000, 19000, 20000, 21000, 22000, 23000, 24000, 25100],
@@ -802,9 +834,10 @@ var TOLD = (function () {
     return null;
   }
   function takeoffSpeeds(w, flaps) {
-    var t = flaps === 10 ? SPD.f10 : SPD.f15;
-    return { VR: speedAt(SPD.toW, t.VR, w), V2: speedAt(SPD.toW, t.V2, w), V5: speedAt(SPD.toW, SPD.f10.V5, w), // V5 is flown at flaps 10° (flaps are moved to 10° when V5 applies)
-      climb2: speedAt(SPD.toW, SPD.climb2, w), man0: speedAt(SPD.toW, SPD.man0, w), card: cardWeight(w) };
+    var t = flaps === 10 ? SPD.f10 : SPD.f15, TW = t.W || SPD.toW;
+    return { VR: speedAt(TW, t.VR, w), V2: speedAt(TW, t.V2, w), V5: speedAt(SPD.toW, SPD.f10.V5, w), // V5 is flown at flaps 10° (flaps are moved to 10° when V5 applies)
+      climb2: t.climb2 ? speedAt(TW, t.climb2, w) : speedAt(SPD.toW, SPD.climb2, w), man0: speedAt(SPD.toW, SPD.man0, w), card: cardWeight(w),
+      source: flaps === 10 ? "QRH P-1" : "AFM SB.6.2 p25" };
   }
   function landingSpeeds(w) {
     return { f35: speedAt(SPD.ldW, SPD.land["35"], w), f15: speedAt(SPD.ldW, SPD.land["15"], w), f0: speedAt(SPD.ldW, SPD.land["0"], w),
@@ -812,7 +845,7 @@ var TOLD = (function () {
   }
 
   return { cruiseTorque: cruiseTorque, takeoffSpeeds: takeoffSpeeds, landingSpeeds: landingSpeeds, parseMetar: parseMetar, pressureAltitude: pressureAltitude, runwayHeading: runwayHeading, baseRunway: baseRunway,
-    windComponents: windComponents, apgTakeoff: apgTakeoff, apgLanding: apgLanding, chartLookup: chartLookup, powerSettings: powerSettings,
+    windComponents: windComponents, apgTakeoff: apgTakeoff, afmWat15: afmWat15, apgLanding: apgLanding, chartLookup: chartLookup, powerSettings: powerSettings,
     STRUCT_TOW: STRUCT_TOW, STRUCT_LDW: STRUCT_LDW };
 })();
 if (typeof module !== "undefined") module.exports = TOLD;
@@ -1303,7 +1336,7 @@ var SW = (function () {
     var out = { ok: true, icao: icao, a: a, apt: apt, rwy: rwy, rw: rw, rwys: rwys, oat: oat, pa: pa, comp: cm,
       hwUsed: cm ? cm.used : null, to: null, ps: null };
     if (oat == null) { out.why = "Enter OAT or a METAR"; return out; }
-    out.to = T.apgTakeoff(rw, oat, { mode: glob.mode || "interp", headwind: cm ? cm.used : 0, wet: !!c.wet, asInop: !!c.asi });
+    out.to = T.apgTakeoff(rw, oat, { mode: glob.mode || "interp", headwind: cm ? cm.used : 0, wet: !!c.wet, asInop: !!c.asi, pa: pa, antiIce: !!c.ai, watAdvisory: glob.wat === "adv" });
     out.ps = T.powerSettings(D.QRH, pa, oat, { antiIce: !!c.ai, aircon: !!c.ac, rpm: +(glob.rpm || 1400), lapse: +(glob.lapse || 2), cruiseAntiIce: String(glob.cai) === "1" });
     // Emergency return: max landing weight back at the departure runway, same conditions (decision 6).
     out.ret = landing(D, icao, { rwy: T.baseRunway(rwy), oat: c.oat, wdir: c.wdir, wspd: c.wspd, gust: c.gust, vrb: c.vrb, wsrc: c.wsrc, wet: c.wet, asi: c.asi });
@@ -1368,8 +1401,8 @@ var SW = (function () {
       var leg = "Leg " + (i + 1) + " (" + g.from + " → " + g.to + ")";
       if (dep.to && dep.to.error) L.alerts.push({ l: "bad", t: leg + ": " + dep.to.error, s: "T/O NOT AUTHORIZED: " + dep.to.error.replace(/^Takeoff not authorized /, "") });
       if (mtow != null && mtow < PC.DEF.set.mtow - 0.5 && (g.apgCut > 0.5 || g.toBy.indexOf("APG") === 0 && g.tow >= mtow - 0.5))
-        L.alerts.push({ l: "bad", apg: true, t: leg + ": takeoff at maximum weight is not authorized. APG limit " + fmt(mtow) + " lb on RWY " + dep.rwy + " at " + dep.oat + "°C (" + String(dep.to.limitedBy).toLowerCase() + ")." + (g.apgCut > 0.5 ? " Fuel plan reduced by " + fmt(g.apgCut) + " lb to stay within it." : ""),
-          s: "T/O at max weight NOT AUTHORIZED. APG " + fmt(mtow) + " (RWY " + dep.rwy + ", " + dep.oat + "°C)." + (g.apgCut > 0.5 ? " Fuel −" + fmt(g.apgCut) + " lb." : "") });
+        L.alerts.push({ l: "bad", apg: true, t: leg + ": takeoff at maximum weight is not authorized. " + (/AFM/.test(dep.to.limitedBy) ? "AFM climb limit (WAT) " : "APG limit ") + fmt(mtow) + " lb on RWY " + dep.rwy + " at " + dep.oat + "°C (" + String(dep.to.limitedBy).toLowerCase() + ")." + (g.apgCut > 0.5 ? " Fuel plan reduced by " + fmt(g.apgCut) + " lb to stay within it." : ""),
+          s: "T/O at max weight NOT AUTHORIZED. " + (/AFM/.test(dep.to.limitedBy) ? "AFM WAT " : "APG ") + fmt(mtow) + " (RWY " + dep.rwy + ", " + dep.oat + "°C)." + (g.apgCut > 0.5 ? " Fuel −" + fmt(g.apgCut) + " lb." : "") });
       if (mtow != null && tow > mtow + 0.5) L.alerts.push({ l: "bad", t: leg + ": takeoff weight " + fmt(tow) + " lb is over the APG limit " + fmt(mtow) + " lb by " + fmt(tow - mtow) + " lb.", s: "T/O wt over APG limit by " + fmt(tow - mtow) + " lb." });
       if (arr.mlw != null && ldw > arr.mlw + 0.5) L.alerts.push({ l: "bad", t: leg + ": landing weight " + fmt(ldw) + " lb is over the max landing weight at " + g.to + " (" + fmt(arr.mlw) + " lb) by " + fmt(ldw - arr.mlw) + " lb.", s: "LDG wt over max at " + g.to + " by " + fmt(ldw - arr.mlw) + " lb." });
       if (L.retOver) L.alerts.push({ l: "warn", ret: true, t: "* " + leg + ": an immediate return to " + g.from + " would land " + fmt(L.retOver) + " lb over its max landing weight (" + fmt(L.retMlw) + " lb, RWY " + dep.ret.lr + ", departure conditions).", s: "* Immediate return to " + g.from + ": " + fmt(L.retOver) + " lb over max landing wt." });
@@ -2099,7 +2132,7 @@ function fillFields(){var L=curL();if(!L)return;
  [['d_',o,['metar','oat','alt','wdir','wspd']],['a_',a,['metar','oat','alt','wdir','wspd']]].forEach(function(x){x[2].forEach(function(f){$(x[0]+f).value=x[1][f]==null?'':x[1][f]})});
  $('d_wsrc').value=o.wsrc||'true';$('a_wsrc').value=a.wsrc||'true';$('d_flaps').value=o.flaps||'15';
  ['wet','asi','ai','ac'].forEach(function(f){$('d_'+f).checked=!!o[f]});['wet','asi'].forEach(function(f){$('a_'+f).checked=!!a[f]});
- ['mode','rpm','lapse','cai'].forEach(function(f){if(ST.glob[f]!=null)$('g_'+f).value=ST.glob[f]});
+ ['mode','rpm','lapse','cai','wat'].forEach(function(f){if(ST.glob[f]!=null)$('g_'+f).value=ST.glob[f]});
  $('o_tow').value=ov.tow==null?'':ov.tow;$('o_ldw').value=ov.ldw==null?'':ov.ldw;
  ['d_','a_'].forEach(function(px){var b=px==='d_'?o:a;$(px+'tafBox').hidden=!b.taf;$(px+'taf').textContent=b.taf||'';$(px+'msg').hidden=true})}
 
@@ -2355,7 +2388,7 @@ function toldRender(M){
   else if(to.error)m.innerHTML='<p class="msg bad">'+esc(to.error)+'</p>';
   else{
    var rows=to.steps.map(function(s){return '<tr><td>'+esc(s.k)+(s.note?'<div class="hint">'+esc(s.note)+'</div>':'')+'</td><td class="n">'+(s.k==='Runway limit weight'?fmt(s.v):(s.v>0?'+':s.v<0?'−':'')+fmt(Math.abs(s.v)))+'</td></tr>'}).join('');
-   rows+='<tr class="tot"><td>Corrected runway limit</td><td class="n">'+fmt(to.runwayCorrected)+'</td></tr><tr><td>Climb limit</td><td class="n">'+fmt(to.climb)+'</td></tr><tr><td>Structural max takeoff</td><td class="n">'+fmt(TOLD.STRUCT_TOW)+'</td></tr>';
+   rows+='<tr class="tot"><td>Corrected runway limit</td><td class="n">'+fmt(to.runwayCorrected)+'</td></tr><tr><td>Climb limit</td><td class="n">'+fmt(to.climb)+'</td></tr>'+(to.afmWat?'<tr><td>AFM climb limit (WAT)<div class="hint">AFM SB.6.2 p32, flaps 15° RTOP'+(to.afmWat.advisory?' · advisory (Settings)':'')+(to.afmWat.error?': '+esc(to.afmWat.error):'')+'</div></td><td class="n">'+(to.afmWat.value!=null?fmt(to.afmWat.value):'—')+'</td></tr>':'')+'<tr><td>Structural max takeoff</td><td class="n">'+fmt(TOLD.STRUCT_TOW)+'</td></tr>';
    var br=to.rows.map(function(r){return '<tr><td class="n">'+r.t+'°</td><td class="n">'+fmt(r.w)+'/'+r.code+'</td><td class="n">'+fmt(r.climb)+'</td><td class="n">'+r.mtop+'</td></tr>'}).join('');
    var cmp=ps&&!ps.mtop70.error?'<p class="hint">APG MTOP torque at '+oat+'°: <b>'+to.mtop+'</b>. QRH MTOP/70: <b>'+ps.mtop70.value+'</b>'+(ps.mtop.error?'':', MTOP@110: <b>'+ps.mtop.value+'</b>')+'.</p>':'';
    var apgBind=to.mtow<TOLD.STRUCT_TOW;
