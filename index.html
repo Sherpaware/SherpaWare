@@ -372,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 13:06 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 16:03 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -778,6 +778,24 @@ var TOLD = (function () {
     return res;
   }
 
+
+  // ---------- AFM landing climb limit (landing WAT): Doc SB.6.2 Section 5 page 107, WITH RTOP ----------
+  // Rows: temperature -40..50 C (5 C); columns: pressure altitude -1000..8000 ft (500 ft). null = beyond ISA+35. Max 25,100 lb.
+  var LWAT = { temps: [-40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50], alts: [-1000, -500, 0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500, 8000], w: [[25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25000, 24780, 24430, 24040], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25090, 24870, 24650, 24320, 23920], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 24970, 24750, 24530, 24160, 23830], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25080, 24840, 24620, 24400, 24080, 23690], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 24940, 24720, 24500, 24280, 23960, 23550], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25050, 24820, 24600, 24370, 24140, 23820, 23300], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 24920, 24690, 24470, 24250, 24000, 23560, 23100], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25020, 24760, 24530, 24310, 23970, 23520, 23060, 22620], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25030, 24800, 24570, 24340, 23950, 23490, 23020, 22580, 22140], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25080, 24830, 24590, 24340, 23870, 23410, 22960, 22500, 22060, 21620], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 24890, 24640, 24190, 23720, 23260, 22820, 22380, 21930, 21490, 21060], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 25100, 24910, 24470, 24020, 23560, 23110, 22670, 22240, 21800, 21360, 20930, 20510], [25100, 25100, 25100, 25100, 25100, 25100, 25100, 24740, 24300, 23840, 23390, 22950, 22530, 22090, 21660, 21240, 20790, 20380, 19960], [25100, 25100, 25100, 25100, 25100, 24940, 24470, 24020, 23570, 23130, 22700, 22290, 21860, 21430, 21000, 20590, 20170, 19770, 19370], [25100, 25100, 25100, 25090, 24620, 24170, 23710, 23280, 22850, 22440, 22020, 21600, 21190, 20770, 20360, 19960, 19550, 19120, 18760], [25100, 25100, 24760, 24310, 23860, 23410, 22980, 22560, 22150, 21740, 21330, 20930, 20530, 20130, 19730, 19320, 18900, 18460, null], [24880, 24420, 23950, 23500, 23080, 22660, 22240, 21830, 21420, 21020, 20620, 20240, 19870, null, null, null, null, null, null], [24000, 23550, 23110, 22680, 22270, 21860, 21450, 21060, null, null, null, null, null, null, null, null, null, null, null], [23130, 22700, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]] };
+  function afmLdgWat(pa, oat, antiIce) {
+    if (pa == null || oat == null || isNaN(pa) || isNaN(oat)) return { error: "Need pressure altitude and OAT" };
+    var t = oat + (antiIce ? 4 : 0), A = LWAT.alts, Tt = LWAT.temps;
+    if (pa > A[A.length - 1]) return { error: "Above 8,000 ft (chart limit)" };
+    var a = Math.max(pa, A[0]), ba = bracket(A, a), bt = bracket(Tt, Math.max(t, Tt[0]));
+    if (!bt) return { error: "OAT outside chart (-40 to 50 C)" };
+    var c = [LWAT.w[bt[0]][ba[0]], LWAT.w[bt[0]][ba[1]], LWAT.w[bt[1]][ba[0]], LWAT.w[bt[1]][ba[1]]];
+    if (c.some(function (v) { return v == null; })) return { error: "Beyond ISA+35 (outside the AFM chart)" };
+    var fa = A[ba[1]] === A[ba[0]] ? 0 : (a - A[ba[0]]) / (A[ba[1]] - A[ba[0]]);
+    var ft = Tt[bt[1]] === Tt[bt[0]] ? 0 : (Math.max(t, Tt[0]) - Tt[bt[0]]) / (Tt[bt[1]] - Tt[bt[0]]);
+    var lo = c[0] + (c[1] - c[0]) * fa, hi = c[2] + (c[3] - c[2]) * fa;
+    return { value: Math.min(STRUCT_LDW, Math.floor(lo + (hi - lo) * ft)) };
+  }
+
   // ---------- APG landing ----------
   function apgLanding(ld, appClimb, oat, headwind, opts) {
     opts = opts || {};
@@ -790,6 +808,11 @@ var TOLD = (function () {
     var tb = bracket(appClimb.temps, oat);
     res.climb = tb ? Math.floor(lerp(appClimb.temps[tb[0]], appClimb.weights[tb[0]], appClimb.temps[tb[1]], appClimb.weights[tb[1]], oat)) : null;
     var c = [STRUCT_LDW]; if (res.field != null) c.push(res.field); if (res.climb != null) c.push(res.climb);
+    if (opts.pa != null && !isNaN(opts.pa)) {
+      var lw = afmLdgWat(opts.pa, oat, opts.antiIce); res.afmWat = lw;
+      if (lw.value != null && !opts.watAdvisory) c.push(lw.value);
+      else if (lw.value != null) lw.advisory = true;
+    }
     res.mlw = res.field == null ? null : Math.min.apply(null, c);
     res.colName = (opts.asInop ? "A/S inop" : "A/S op") + ", " + (opts.alternate ? "alternate" : "destination") + ", " + (opts.wet ? "wet" : "dry");
     return res;
@@ -891,7 +914,7 @@ var TOLD = (function () {
   }
 
   return { cruiseTorque: cruiseTorque, takeoffSpeeds: takeoffSpeeds, landingSpeeds: landingSpeeds, parseMetar: parseMetar, pressureAltitude: pressureAltitude, runwayHeading: runwayHeading, baseRunway: baseRunway,
-    windComponents: windComponents, apgTakeoff: apgTakeoff, afmWat15: afmWat15, afmFieldLimit: afmFieldLimit, afmV1: afmV1, apgLanding: apgLanding, chartLookup: chartLookup, powerSettings: powerSettings,
+    windComponents: windComponents, apgTakeoff: apgTakeoff, afmWat15: afmWat15, afmLdgWat: afmLdgWat, afmFieldLimit: afmFieldLimit, afmV1: afmV1, apgLanding: apgLanding, chartLookup: chartLookup, powerSettings: powerSettings,
     STRUCT_TOW: STRUCT_TOW, STRUCT_LDW: STRUCT_LDW };
 })();
 if (typeof module !== "undefined") module.exports = TOLD;
@@ -1385,12 +1408,12 @@ var SW = (function () {
     out.to = T.apgTakeoff(rw, oat, { mode: glob.mode || "interp", headwind: cm ? cm.used : 0, wet: !!c.wet, asInop: !!c.asi, pa: pa, antiIce: !!c.ai, watAdvisory: glob.wat === "adv", afmFL: D.AFMFL });
     out.ps = T.powerSettings(D.QRH, pa, oat, { antiIce: !!c.ai, aircon: !!c.ac, rpm: +(glob.rpm || 1400), lapse: +(glob.lapse || 2), cruiseAntiIce: String(glob.cai) === "1" });
     // Emergency return: max landing weight back at the departure runway, same conditions (decision 6).
-    out.ret = landing(D, icao, { rwy: T.baseRunway(rwy), oat: c.oat, wdir: c.wdir, wspd: c.wspd, gust: c.gust, vrb: c.vrb, wsrc: c.wsrc, wet: c.wet, asi: c.asi });
+    out.ret = landing(D, icao, { rwy: T.baseRunway(rwy), oat: c.oat, wdir: c.wdir, wspd: c.wspd, gust: c.gust, vrb: c.vrb, wsrc: c.wsrc, wet: c.wet, asi: c.asi, alt: c.alt, ai: c.ai }, glob);
     return out;
   }
 
   // ---------- Landing at an airport with given (arrival) conditions ----------
-  function landing(D, icao, c) {
+  function landing(D, icao, c, glob) {
     var a = icao && D.APG[icao];
     if (!a) return { ok: false, mlw: null, why: "No APG analysis for this airport" };
     c = c || {};
@@ -1400,7 +1423,9 @@ var SW = (function () {
     if (!ld) { out.why = "No landing data for runway " + lr; return out; }
     if (oat == null) { out.why = "Enter arrival conditions"; return out; }
     var cm = wind(c, lr, apt.magvar), hw = cm ? cm.head : 0;
-    var r = T.apgLanding(ld, a.approachClimb, oat, hw, { wet: !!c.wet, asInop: !!c.asi });
+    var lpa = T.pressureAltitude(a.elevation, num(c.alt));
+    var r = T.apgLanding(ld, a.approachClimb, oat, hw, { wet: !!c.wet, asInop: !!c.asi, pa: lpa, antiIce: !!c.ai, watAdvisory: (glob || {}).wat === "adv" });
+    out.pa = lpa; out.afmWat = r.afmWat;
     out.comp = cm; out.hw = hw; out.mlw = r.mlw; out.field = r.field; out.climb = r.climb; out.warning = r.warning;
     out.why = "RWY " + lr + " · " + (c.wet ? "wet" : "dry") + (c.asi ? " · A/S inop" : "") + " · " + oat + "°C";
     if (r.field == null) out.why = "RWY " + lr + ": landing not authorized in these conditions";
@@ -1416,7 +1441,7 @@ var SW = (function () {
       var k = legKey(R, i); keys.push(k);
       var di = icaoOf(D.APG, R[i].code), ai = icaoOf(D.APG, R[i + 1].code);
       var dep = departure(D, di, (store.dep || {})[k], store.glob);
-      var arr = landing(D, ai, (store.arr || {})[k]);
+      var arr = landing(D, ai, (store.arr || {})[k], store.glob);
       deps.push(dep); arrs.push(arr);
       // APG limits feed the planner's caps (decision 5). "Not authorized" means no APG takeoff weight at all.
       if (dep.to && !dep.to.error) R[i].apgTO = dep.to.mtow;
@@ -2451,8 +2476,8 @@ function toldRender(M){
  if(!arr.ok)LG.innerHTML='<p class="hint">'+esc(g.to)+' has no APG analysis in SherpaWare.</p>';
  else if(arr.oat==null)LG.innerHTML='<p class="hint">Enter arrival conditions for '+esc(g.to)+' above.</p>';
  else if(!arr.ld)LG.innerHTML='<p class="hint">No landing data for runway '+esc(arr.lr)+'.</p>';
- else{var cases=[['Destination',false],['Alternate',true]].map(function(x){var r=TOLD.apgLanding(arr.ld,arr.a.approachClimb,arr.oat,arr.hw,{alternate:x[1],wet:!!ca.wet,asInop:!!ca.asi});return '<tr><td>'+x[0]+'</td><td class="n">'+(r.field==null?'<span class="pill bad">Not authorized</span>':fmt(r.field))+'</td><td class="n">'+fmt(r.climb)+'</td><td class="n"><b>'+(r.mlw==null?'—':fmt(r.mlw))+'</b></td></tr>'}).join('');
-  LG.innerHTML='<div class="scroll"><table><thead><tr><th>Runway '+esc(arr.lr)+' · '+fmt(arr.ld.length)+' ft</th><th class="n">Field limit</th><th class="n">Approach climb</th><th class="n">Max landing</th></tr></thead><tbody>'+cases+'</tbody></table></div>'+
+ else{var cases=[['Destination',false],['Alternate',true]].map(function(x){var r=TOLD.apgLanding(arr.ld,arr.a.approachClimb,arr.oat,arr.hw,{alternate:x[1],wet:!!ca.wet,asInop:!!ca.asi,pa:arr.pa,antiIce:!!ca.ai,watAdvisory:ST.glob.wat==='adv'});return '<tr><td>'+x[0]+'</td><td class="n">'+(r.field==null?'<span class="pill bad">Not authorized</span>':fmt(r.field))+'</td><td class="n">'+fmt(r.climb)+'</td><td class="n">'+(r.afmWat&&r.afmWat.value!=null?fmt(r.afmWat.value)+(r.afmWat.advisory?'*':''):'—')+'</td><td class="n"><b>'+(r.mlw==null?'—':fmt(r.mlw))+'</b></td></tr>'}).join('');
+  LG.innerHTML='<div class="scroll"><table><thead><tr><th>Runway '+esc(arr.lr)+' · '+fmt(arr.ld.length)+' ft</th><th class="n">Field limit</th><th class="n">APG approach climb</th><th class="n">AFM climb (WAT p107)</th><th class="n">Max landing</th></tr></thead><tbody>'+cases+'</tbody></table></div>'+
    '<p class="hint">Landing flaps 30, approach flaps 15. '+(ca.wet?'Wet':'Dry')+', anti-skid '+(ca.asi?'inoperative':'operative')+', wind '+arr.hw.toFixed(1)+' kt '+(arr.hw>=0?'head':'tail')+'. Structural max landing '+fmt(TOLD.STRUCT_LDW)+' lb. APG '+esc(arr.a.file)+' landing page.</p>'+
    (dep.ok&&dep.ret&&dep.ret.mlw!=null?'<p class="hint">Immediate return to '+esc(dep.icao)+' (RWY '+esc(dep.ret.lr)+', departure conditions): max landing '+fmt(dep.ret.mlw)+' lb'+(L.retOver?', <b style="color:var(--caution)">* takeoff weight is '+fmt(L.retOver)+' lb over it</b>':'')+'.</p>':'')}
  // Sources
