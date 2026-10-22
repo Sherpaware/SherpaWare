@@ -372,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Mon 19 Oct 2026 08:59 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 09:54 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -1015,7 +1015,7 @@ function parseOne(text,routeCodes){
   var blk=[];for(var q=0;q<rows.length;q++){var rr=rows[q];if(!blk.length){blk.push(rr);continue}var la=blk[blk.length-1];if(rr.from===la.to&&rr.i-la.i<400&&mn(rr.dep)>=mn(la.arr))blk.push(rr);else break}
   if(blk.length){
    out.legs=blk.map(function(r,k){return {n:k+1,from:r.from,to:r.to,dep:r.dep,arr:r.arr,block:mn(r.arr)-mn(r.dep),nm:0,flt:r.flt}});
-   out.proposed=true;var dr=/(\d)-\s*(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/gi,dm,day='',pre=t2.slice(0,blk[0].i);while((dm=dr.exec(pre)))day=dm[2];out.schedDay=day}
+   out.proposed=true;var dr=/(\d{1,2})\s*-\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*/gi,dm,day='',pre=t2.slice(0,blk[0].i),WD={mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'};while((dm=dr.exec(pre)))day=WD[dm[2].toLowerCase()];out.schedDay=day}
  }
  // Trip number (JetLogistics trip code, e.g. A1BCDE) and booking number, for the flight log.
  var tm=/\bTrip\s*(?:#|No\.?|ID|Number)?\s*[:\-]?\s*([A-Z0-9]{5,8})\b/.exec(text);if(tm&&/[A-Z]/.test(tm[1])&&/\d/.test(tm[1]))out.tripNo=tm[1];
@@ -1824,25 +1824,32 @@ function autoNm(a,b){var ia=null,ib=null,k;for(k in ICAO){if(ICAO[k]===a)ia=k;if
  var A=ia&&APT[ia],B=ib&&APT[ib];if(!A||!B||A.lat==null||B.lat==null)return 0;
  var r=Math.PI/180,x=Math.sin(A.lat*r)*Math.sin(B.lat*r)+Math.cos(A.lat*r)*Math.cos(B.lat*r)*Math.cos((B.lon-A.lon)*r);
  return Math.round(3440.065*Math.acos(Math.max(-1,Math.min(1,x))))}
+// Date named in a subject such as "SJU Proposed Schedule - Thursday 22 Oct" (year taken from when it was sent).
+function autoSubjDate(sub,sentMs){var m=/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*/i.exec(String(sub||''));if(!m)return '';
+ var mo=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[2].toLowerCase())+1,y=+autoIso(sentMs).slice(0,4),dd=+m[1];
+ var iso=function(yy){return yy+'-'+('0'+mo).slice(-2)+'-'+('0'+dd).slice(-2)},c=iso(y);if(c<autoIso(sentMs).slice(0,10)&&mo<3&&+autoIso(sentMs).slice(5,7)>10)c=iso(y+1);return c}
 function autoHash(s){var h=5381,i;for(i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return String(h)}
 function autoSetKey(k){k=String(k||'').trim();if(!/^[A-Za-z0-9]{16,64}$/.test(k))return false;var A=autoSt();A.key=k;A.since=0;save();return true}
 
 // ---- fetch new documents from the relay and read them ----
 async function autoFetch(){
- var A=autoSt(),n=0,loops=0,more=true;
+ var A=autoSt(),n=0,loops=0,more=true,back=0;
+ Object.keys(A.docs).forEach(function(k){var x=A.docs[k];if(x.err&&/^could not be read/.test(x.err)&&(x.tries||0)<3&&x.rcv&&(!back||x.rcv<back))back=x.rcv});
+ var cur=back?Math.min(A.since||0,back-1):(A.since||0);
  while(more&&loops++<6){
-  var r=await fetch(SW_RELAY+'/inbox?since='+(A.since||0),{headers:{'X-SW-Key':A.key},cache:'no-store'});
+  var r=await fetch(SW_RELAY+'/inbox?since='+cur,{headers:{'X-SW-Key':A.key},cache:'no-store'});
   if(r.status===401)throw new Error('The access key was not accepted. Check the key in Paperwork.');
   if(r.status===501)throw new Error('The relay inbox is not set up yet.');
   if(!r.ok)throw new Error('relay '+r.status);
   var j=await r.json();more=!!j.more;
   for(var i=0;i<(j.docs||[]).length;i++){var d=j.docs[i];
-   if(d.rcv>A.since)A.since=d.rcv;
-   if(A.docs[d.id])continue;
+   if(d.rcv>A.since)A.since=d.rcv;if(d.rcv>cur)cur=d.rcv;
+   if(A.docs[d.id]&&!(A.docs[d.id].err&&/^could not be read/.test(A.docs[d.id].err)&&d.b64&&(A.docs[d.id].tries||0)<3))continue;
+   var tries=A.docs[d.id]?(A.docs[d.id].tries||0)+1:0;
    var text='',err='';
-   try{text=d.b64?await pdfToText(s2b(atob(d.b64))):(d.text||'');if(d.b64&&!text.trim())err='no text found (scan?)'}catch(e){err='could not be read'}
+   try{text=d.b64?await pdfToText(s2b(atob(d.b64))):(d.text||'');if(d.b64&&!text.trim())err='no text found (scan?)'}catch(e){err='could not be read: '+String(e&&e.message?e.message:e).slice(0,80)}
    var p=parsePaste(text,[]),keep={legs:p.legs,cargo:p.cargo,date:p.date||'',proposed:!!p.proposed,schedDay:p.schedDay||'',status:p.status,master:p.master||null,training:!!p.training,docs:p.docs,tripNo:p.tripNo||'',booking:p.booking||''};
-   A.docs[d.id]={name:d.name,sent:d.sent,rcv:d.rcv,from:d.from,subject:d.subject,err:err,r:keep};n++}}
+   A.docs[d.id]={name:d.name,sent:d.sent,rcv:d.rcv,from:d.from,subject:d.subject,err:err,tries:tries,r:keep};n++}}
  var cut=Date.now()-10*86400000;Object.keys(A.docs).forEach(function(k){if((A.docs[k].sent||0)<cut)delete A.docs[k]});
  return n}
 
@@ -1850,7 +1857,7 @@ async function autoFetch(){
 function autoPlan(){
  var A=autoSt(),today=autoToday(),docs=Object.keys(A.docs).map(function(k){return A.docs[k]}).filter(function(d){return d.r}).sort(function(a,b){return a.sent-b.sent}),T={};
  docs.forEach(function(d){var r=d.r;if(!r.legs||!r.legs.length)return;
-  var date=r.date||(r.proposed&&r.schedDay?autoWeekday(r.schedDay,d.sent):'');if(!date||date<today)return;
+  var date=r.date||(r.proposed&&r.schedDay?autoWeekday(r.schedDay,d.sent):'');if(!date&&r.proposed)date=autoSubjDate(d.subject,d.sent);if(!date||date<today)return;
   var conf=!r.proposed,t=T[date];
   if(!t||(conf&&!t.conf)||(conf===t.conf))T[date]={date:date,legs:r.legs,conf:conf,names:[d.name],tripNo:r.tripNo,booking:r.booking,flt:r.legs.map(function(l){return l.flt}).filter(Boolean)}});
  var dates=Object.keys(T).sort(),status=null,cbp=false,cargo={},loose=[],disc={},master=null;
@@ -1956,6 +1963,7 @@ function autoPanel(){
    '<div class="row"><input id="akey" class="w" style="flex:1" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Access key (READ KEY)"><button type="button" class="red" id="asave">Save key</button></div><p class="sub" id="amsg"></p>'}
  else{
   h+='<div class="row"><button type="button" class="red" id="anow">Check now</button><span class="sub" id="amsg">'+(l?(l.err?'<span class="warn">'+esc(l.err)+'</span> ':'')+'Last check '+autoHm(l.at)+' AST'+(l.n?' · '+l.n+' new document'+(l.n===1?'':'s'):' · nothing new'):'Not checked yet.')+'</span></div>';
+  if(!window.pdfjsLib)h+='<p class="note warn">This browser could not start the PDF reader (it is probably out of date), so PDF attachments cannot be read here. Update iOS / the browser, or use a newer device. The schedule emails still work.</p>';
   var ts=(l&&l.trips)||[];
   if(ts.length){h+='<div class="sc"><table><tr><th>Date</th><th>Draft</th><th>Still missing</th></tr>'+ts.map(function(t){var s=(ST.lib[t.id]&&ST.lib[t.id].t.state)||{},rt=(s.route||[]).map(function(r){return r.code}).filter(Boolean).join(' → ');
     return '<tr><td><b>'+esc(fdate(t.date))+'</b></td><td>'+esc(rt)+'<br><span class="tag'+(t.res==='new'||t.res==='updated'||t.res==='added'?' w':'')+'">'+esc({new:'NEW DRAFT',updated:'UPDATED',added:'ADDED TO YOUR TRIP',kept:'NO CHANGE',unchanged:'NO CHANGE'}[t.res]||t.res)+'</span> <button type="button" class="ghost" data-aopen="'+esc(t.id)+'">Open</button></td><td>'+(t.missing.length?t.missing.map(esc).join('<br>'):'Nothing')+discAlerts(s).map(function(x){return '<br><span class="warn">'+esc(x.s)+'</span>'}).join('')+'</td></tr>'}).join('')+'</table></div>'}
