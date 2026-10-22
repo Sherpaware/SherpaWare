@@ -372,7 +372,7 @@ body.kpopen .ph{padding-bottom:330px}
 <div class="wrap">
   <header class="top">
     <h1>SherpaWare <small>N282BT · SD3-60 · PT6A-65AR</small></h1>
-  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 16:24 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
+  <p class="asof" id="asOf">Current as of Thu 22 Oct 2026 18:12 AST · Weather: <span id="wxAsOf">not loaded yet</span></p>
     <div class="cur"><span>APG analyses <b id="apgDate"></b></span><span>QRH <b>Rev. Original Apr 2022</b></span></div>
     <button type="button" id="cpOpen" class="cpbtn">Cockpit view</button>
     <button type="button" id="refreshAll" class="cpbtn ghost" title="Reload weather for every airport on the trip">Refresh all data</button>
@@ -450,7 +450,7 @@ body.kpopen .ph{padding-bottom:330px}
           <summary>Calculation settings</summary>
           <div class="grid" style="margin-top:10px">
             <div><label for="g_mode">APG temperature rows</label><select id="g_mode" data-c="glob:mode"><option value="interp">Interpolate</option><option value="next">Next higher row</option></select></div>
-            <div><label for="g_wat">AFM limits (WAT p32, field length pp 63-65)</label><select id="g_wat" data-c="glob:wat"><option value="on">Binding: limits take-off weight</option><option value="adv">Advisory: shown, does not limit (applies to AFM WAT and field length)</option></select></div>
+            <div><label for="g_wat">AFM reference limits (SB.6.2: WAT pp 32/107, field length pp 63-65/118)</label><select id="g_wat" data-c="glob:wat"><option value="adv">Advisory (default): AFM values shown and flagged; APG/QRH limits govern</option><option value="on">Binding: AFM values also limit take-off and landing weight</option></select></div>
             <div><label for="g_rpm">ICC prop RPM</label><select id="g_rpm" data-c="glob:rpm"><option>1200</option><option>1300</option><option selected>1400</option></select></div>
             <div><label for="g_lapse">ICC lapse rate °C / 1000 ft</label><select id="g_lapse" data-c="glob:lapse"><option value="2" selected>2.0 (standard)</option><option value="3">3.0 (dry adiabatic)</option></select></div>
             <div><label for="g_cai">Cruise anti-icing</label><select id="g_cai" data-c="glob:cai"><option value="0">Off</option><option value="1">On</option></select></div>
@@ -916,12 +916,11 @@ var TOLD = (function () {
   var SPD = {
     toW: [18000, 19000, 20000, 21000, 22000, 23000, 24000, 25000, 25600],
     f10: { VR: [87, 88, 90, 93, 95, 98, 100, 103, 104], V2: [88, 89, 92, 94, 97, 99, 101, 104, 105], V5: [91, 93, 96, 98, 101, 103, 105, 108, 109] },
-    // Flaps 15: AFM Doc SB.6.2 Section 5 page 25 (digitized 22 Oct 2026), rounded up to the knot.
-    f15: { W: [18000, 18500, 19000, 19500, 20000, 20500, 21000, 21500, 22000, 22500, 23000, 23500, 24000, 24500, 25000, 25500, 25600],
-      VR: [86.5, 86.5, 86.5, 86.5, 87.7, 88.8, 90.0, 91.1, 92.3, 93.4, 94.6, 95.8, 96.9, 98.1, 99.2, 100.4, 100.6],
-      V2: [88.0, 88.0, 88.0, 88.2, 89.2, 90.2, 91.3, 92.3, 93.3, 94.4, 95.4, 96.5, 97.5, 98.5, 99.6, 100.6, 100.8],
-      climb2: [124.0, 124.0, 124.0, 124.3, 125.3, 126.3, 127.4, 128.4, 129.4, 130.5, 131.5, 132.5, 133.6, 134.6, 135.6, 136.7, 136.9] },  // climb2 = AFM p25 two-engine en-route climb, flaps 0 (chart starts at 19,370 lb; 124 kt below)
-    climb2: [124, 124, 124, 126, 128, 130, 132, 134, 135],  // QRH, used for flaps 10
+    f15: { VR: [86, 86, 86, 88, 91, 93, 95, 97, 98], V2: [88, 88, 88, 89, 92, 94, 96, 98, 98] },
+    climb2: [124, 124, 124, 126, 128, 130, 132, 134, 135],
+    // AFM reference speeds, Doc SB.6.2 Section 5 page 25 (digitized 22 Oct 2026). Used only when Settings > AFM reference limits = Binding.
+    afm15: {"W": [18000, 18500, 19000, 19500, 20000, 20500, 21000, 21500, 22000, 22500, 23000, 23500, 24000, 24500, 25000, 25500, 25600], "VR": [86.5, 86.5, 86.5, 86.5, 87.7, 88.8, 90.0, 91.1, 92.3, 93.4, 94.6, 95.8, 96.9, 98.1, 99.2, 100.4, 100.6], "V2": [88.0, 88.0, 88.0, 88.2, 89.2, 90.2, 91.3, 92.3, 93.3, 94.4, 95.4, 96.5, 97.5, 98.5, 99.6, 100.6, 100.8], "climb2": [124.0, 124.0, 124.0, 124.3, 125.3, 126.3, 127.4, 128.4, 129.4, 130.5, 131.5, 132.5, 133.6, 134.6, 135.6, 136.7, 136.9]},
+    afm10: {"W": [18000, 18500, 19000, 19500, 20000, 20500, 21000, 21500, 22000, 22500, 23000, 23500, 24000, 24500, 25000, 25500, 25600], "VR": [87.0, 88.2, 89.5, 90.7, 92.0, 93.2, 94.4, 95.7, 96.9, 98.1, 99.4, 100.6, 101.9, 103.1, 104.3, 105.6, 105.8], "V2": [88.7, 89.9, 91.1, 92.2, 93.4, 94.5, 95.7, 96.8, 98.0, 99.2, 100.3, 101.5, 102.6, 103.8, 105.0, 106.1, 106.3], "V5": [92.6, 93.8, 95.0, 96.2, 97.4, 98.6, 99.8, 101.0, 102.2, 103.5, 104.7, 105.9, 107.1, 108.3, 109.5, 110.7, 111.0], "climb2": [124.0, 124.0, 124.0, 124.5, 125.5, 126.5, 127.5, 128.5, 129.5, 130.5, 131.5, 132.5, 133.5, 134.5, 135.5, 136.5, 136.7]},
     // Flaps 0° maneuvering speed: BTA V-speed cards (Doc SD3-60 V-speed cards 65AR), not in QRH P-1.
     man0: [132, 136, 140, 144, 149, 153, 157, 160, 161],
     ldW: [18000, 19000, 20000, 21000, 22000, 23000, 24000, 25100],
@@ -940,11 +939,13 @@ var TOLD = (function () {
     for (var i = 0; i < SPD.toW.length; i++) if (w <= SPD.toW[i]) return SPD.toW[i];
     return null;
   }
-  function takeoffSpeeds(w, flaps) {
-    var t = flaps === 10 ? SPD.f10 : SPD.f15, TW = t.W || SPD.toW;
-    return { VR: speedAt(TW, t.VR, w), V2: speedAt(TW, t.V2, w), V5: speedAt(SPD.toW, SPD.f10.V5, w), // V5 is flown at flaps 10° (flaps are moved to 10° when V5 applies)
-      climb2: t.climb2 ? speedAt(TW, t.climb2, w) : speedAt(SPD.toW, SPD.climb2, w), man0: speedAt(SPD.toW, SPD.man0, w), card: cardWeight(w),
-      source: flaps === 10 ? "QRH P-1" : "AFM SB.6.2 p25" };
+  function takeoffSpeeds(w, flaps, useAfm) {
+    var q = flaps === 10 ? SPD.f10 : SPD.f15, A = flaps === 10 ? SPD.afm10 : SPD.afm15;
+    var qrh = { VR: speedAt(SPD.toW, q.VR, w), V2: speedAt(SPD.toW, q.V2, w), V5: speedAt(SPD.toW, SPD.f10.V5, w), climb2: speedAt(SPD.toW, SPD.climb2, w) };
+    var afm = { VR: speedAt(A.W, A.VR, w), V2: speedAt(A.W, A.V2, w), V5: speedAt(A.W, SPD.afm10.V5, w), climb2: speedAt(A.W, A.climb2, w) };
+    var p = useAfm ? afm : qrh;
+    return { VR: p.VR, V2: p.V2, V5: p.V5, climb2: p.climb2, man0: speedAt(SPD.toW, SPD.man0, w), card: cardWeight(w),
+      source: useAfm ? "AFM SB.6.2 p25 (Binding)" : "QRH P-1", afm: afm, qrh: qrh };
   }
   function landingSpeeds(w) {
     return { f35: speedAt(SPD.ldW, SPD.land["35"], w), f15: speedAt(SPD.ldW, SPD.land["15"], w), f0: speedAt(SPD.ldW, SPD.land["0"], w),
@@ -1443,7 +1444,7 @@ var SW = (function () {
     var out = { ok: true, icao: icao, a: a, apt: apt, rwy: rwy, rw: rw, rwys: rwys, oat: oat, pa: pa, comp: cm,
       hwUsed: cm ? cm.used : null, to: null, ps: null };
     if (oat == null) { out.why = "Enter OAT or a METAR"; return out; }
-    out.to = T.apgTakeoff(rw, oat, { mode: glob.mode || "interp", headwind: cm ? cm.used : 0, wet: !!c.wet, asInop: !!c.asi, pa: pa, antiIce: !!c.ai, watAdvisory: glob.wat === "adv", afmFL: D.AFMFL });
+    out.to = T.apgTakeoff(rw, oat, { mode: glob.mode || "interp", headwind: cm ? cm.used : 0, wet: !!c.wet, asInop: !!c.asi, pa: pa, antiIce: !!c.ai, watAdvisory: glob.wat !== "on", afmFL: D.AFMFL });
     out.ps = T.powerSettings(D.QRH, pa, oat, { antiIce: !!c.ai, aircon: !!c.ac, rpm: +(glob.rpm || 1400), lapse: +(glob.lapse || 2), cruiseAntiIce: String(glob.cai) === "1" });
     // Emergency return: max landing weight back at the departure runway, same conditions (decision 6).
     out.ret = landing(D, icao, { rwy: T.baseRunway(rwy), oat: c.oat, wdir: c.wdir, wspd: c.wspd, gust: c.gust, vrb: c.vrb, wsrc: c.wsrc, wet: c.wet, asi: c.asi, alt: c.alt, ai: c.ai }, glob);
@@ -1462,7 +1463,7 @@ var SW = (function () {
     if (oat == null) { out.why = "Enter arrival conditions"; return out; }
     var cm = wind(c, lr, apt.magvar), hw = cm ? cm.head : 0;
     var lpa = T.pressureAltitude(a.elevation, num(c.alt));
-    var r = T.apgLanding(ld, a.approachClimb, oat, hw, { wet: !!c.wet, asInop: !!c.asi, pa: lpa, antiIce: !!c.ai, watAdvisory: (glob || {}).wat === "adv", afmLD: D.AFMLD });
+    var r = T.apgLanding(ld, a.approachClimb, oat, hw, { wet: !!c.wet, asInop: !!c.asi, pa: lpa, antiIce: !!c.ai, watAdvisory: (glob || {}).wat !== "on", afmLD: D.AFMLD });
     out.afmField = r.afmField;
     out.pa = lpa; out.afmWat = r.afmWat;
     out.comp = cm; out.hw = hw; out.mlw = r.mlw; out.field = r.field; out.climb = r.climb; out.warning = r.warning;
@@ -2142,7 +2143,7 @@ SW.useEngines(TOLD,{calc:calc,DEF:DEF});
 
 // ---------- Store (one key) ----------
 var KEY='sherpaware-v1';
-var ST={trip:null,dep:{},arr:{},ov:{},glob:{mode:'interp',rpm:'1400',lapse:'2',cai:'0'},sel:0};
+var ST={trip:null,dep:{},arr:{},ov:{},glob:{mode:'interp',rpm:'1400',lapse:'2',cai:'0',wat:'adv'},sel:0};
 var state=null,base=null,log=[],M=null,draft=null,tab='cargo',photoURL=null;
 function clone(o){return JSON.parse(JSON.stringify(o))}
 function loadStore(){try{var s=JSON.parse(localStorage.getItem(KEY)||'null');if(s){for(var k in s)ST[k]=s[k]}}catch(e){}
@@ -2515,7 +2516,7 @@ function toldRender(M){
  if(!arr.ok)LG.innerHTML='<p class="hint">'+esc(g.to)+' has no APG analysis in SherpaWare.</p>';
  else if(arr.oat==null)LG.innerHTML='<p class="hint">Enter arrival conditions for '+esc(g.to)+' above.</p>';
  else if(!arr.ld)LG.innerHTML='<p class="hint">No landing data for runway '+esc(arr.lr)+'.</p>';
- else{var cases=[['Destination',false],['Alternate',true]].map(function(x){var r=TOLD.apgLanding(arr.ld,arr.a.approachClimb,arr.oat,arr.hw,{alternate:x[1],wet:!!ca.wet,asInop:!!ca.asi,pa:arr.pa,antiIce:!!ca.ai,watAdvisory:ST.glob.wat==='adv',afmLD:AFMLD});return '<tr><td>'+x[0]+'</td><td class="n">'+(r.field==null?'<span class="pill bad">Not authorized</span>':fmt(r.field))+'</td><td class="n">'+fmt(r.climb)+'</td><td class="n">'+(r.afmWat&&r.afmWat.value!=null?fmt(r.afmWat.value)+(r.afmWat.advisory?'*':''):'—')+'</td><td class="n">'+(r.afmField&&r.afmField.value!=null?(r.afmField.limiting?fmt(r.afmField.value):'n/l')+(r.afmField.advisory?'*':''):(x[1]?'—':(r.afmField&&r.afmField.error?'<span class="pill bad">AFM</span>':'—')))+'</td><td class="n"><b>'+(r.mlw==null?'—':fmt(r.mlw))+'</b></td></tr>'}).join('');
+ else{var cases=[['Destination',false],['Alternate',true]].map(function(x){var r=TOLD.apgLanding(arr.ld,arr.a.approachClimb,arr.oat,arr.hw,{alternate:x[1],wet:!!ca.wet,asInop:!!ca.asi,pa:arr.pa,antiIce:!!ca.ai,watAdvisory:ST.glob.wat!=='on',afmLD:AFMLD});return '<tr><td>'+x[0]+'</td><td class="n">'+(r.field==null?'<span class="pill bad">Not authorized</span>':fmt(r.field))+'</td><td class="n">'+fmt(r.climb)+'</td><td class="n">'+(r.afmWat&&r.afmWat.value!=null?fmt(r.afmWat.value)+(r.afmWat.advisory?'*':''):'—')+'</td><td class="n">'+(r.afmField&&r.afmField.value!=null?(r.afmField.limiting?fmt(r.afmField.value):'n/l')+(r.afmField.advisory?'*':''):(x[1]?'—':(r.afmField&&r.afmField.error?'<span class="pill bad">AFM</span>':'—')))+'</td><td class="n"><b>'+(r.mlw==null?'—':fmt(r.mlw))+'</b></td></tr>'}).join('');
   LG.innerHTML='<div class="scroll"><table><thead><tr><th>Runway '+esc(arr.lr)+' · '+fmt(arr.ld.length)+' ft</th><th class="n">Field limit</th><th class="n">APG approach climb</th><th class="n">AFM climb (WAT p107)</th><th class="n">AFM field (p118)</th><th class="n">Max landing</th></tr></thead><tbody>'+cases+'</tbody></table></div>'+
    '<p class="hint">Landing flaps 30, approach flaps 15. '+(ca.wet?'Wet':'Dry')+', anti-skid '+(ca.asi?'inoperative':'operative')+', wind '+arr.hw.toFixed(1)+' kt '+(arr.hw>=0?'head':'tail')+'. Structural max landing '+fmt(TOLD.STRUCT_LDW)+' lb. APG '+esc(arr.a.file)+' landing page.</p>'+
    (dep.ok&&dep.ret&&dep.ret.mlw!=null?'<p class="hint">Immediate return to '+esc(dep.icao)+' (RWY '+esc(dep.ret.lr)+', departure conditions): max landing '+fmt(dep.ret.mlw)+' lb'+(L.retOver?', <b style="color:var(--caution)">* takeoff weight is '+fmt(L.retOver)+' lb over it</b>':'')+'.</p>':'')}
@@ -2552,7 +2553,7 @@ function renderCockpit(){
  var shown=al.slice(0,4),more=al.length-shown.length;
  var alH=al.length?'<ul class="cal">'+shown.map(function(a){return '<li class="'+a.l+'">'+esc((function(x){return x.charAt(0).toUpperCase()+x.slice(1)})(a.s||a.t.replace(/^Leg \d+ \([^)]*\): /,'')))+'</li>'}).join('')+(more>0?'<li class="info">'+more+' more in Edit</li>':'')+'</ul>':'';
  var mt=L.mtow,tow=L.tow,over=mt!=null&&tow>mt+0.5,lw=L.ldw,lover=L.mlw!=null&&lw>L.mlw+0.5,cm=dep.comp,hw=cm?cm.used:null;
- var vs=TOLD.takeoffSpeeds(tow,+(c.flaps||15)),ls=TOLD.landingSpeeds(lw),gfl=+(c.flaps||15),gv=TOLD.takeoffSpeeds(lw,gfl);
+ var afmOn=ST.glob.wat==='on',vs=TOLD.takeoffSpeeds(tow,+(c.flaps||15),afmOn),ls=TOLD.landingSpeeds(lw),gfl=+(c.flaps||15),gv=TOLD.takeoffSpeeds(lw,gfl,afmOn);
  var offHere=state.cargo.reduce(function(s,x){return s+(+x.off===L.i+1?(+x.kg||0)*KG:0)},0);
  var cgBad=g.flags.some(function(f){return /^CG out/.test(f)});
  var fuelTxt=g.i===0?'Fuel to '+fmt(g.ramp)+' ('+fmt(g.ramp/(+state.set.dens||6.5))+' gal)':(g.skip?'No fuel stop':'Uplift '+fmt(g.up)+' lb ('+fmt(g.up/(+state.set.dens||6.5))+' gal)');
@@ -2598,7 +2599,7 @@ function renderCockpit(){
   h.push(head(2)+'<div class="kv">'+K('V1 = VR',vs.VR,'Flaps '+flaps+'°','hl')+(function(){var f=dep.to&&dep.to.afmField;if(!f||f.v1vr==null||vs.VR.value==null)return '';var v1=TOLD.afmV1(vs.VR.value,f.v1vr);return K('AFM V1 (min)',Math.floor(v1),'V1/VR '+f.v1vr+' · AFM p67')})()+K('V2',vs.V2,'Flaps '+flaps+'°')+K('V5',vs.V5,'Flaps 10°')+K('Accel ht MSL',String(dep.rw.accelHtMsl),'APG',null,esc(dep.icao)+'|'+esc(dep.rwy))+'</div>'+
    '<div class="txt apgl" data-apg="'+esc(dep.icao)+'|'+esc(dep.rwy)+'" role="button" tabindex="0">'+(dpx?'<b>RWY '+esc(dep.rwy)+' DP</b><ol>'+dpx.filter(function(x){return x.indexOf('NOTE:')!==0}).map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ol>':'<span class="hint">No special departure procedure for this runway.</span>')+
    notes.map(function(x){return '<div>'+esc(x)+'</div>'}).join('')+(c.clr?'<div style="margin-top:6px"><b>CLR</b> '+esc(c.clr)+'</div>':'')+'</div>'+PERF_PH+
-   '<div class="foot">'+(vs.VR.low?'Below the speed table; lowest-weight speeds shown. ':'')+(vs.source||'QRH P-1')+' (VR/V2), rounded up. AFM V1 (min) is the lowest V1 the AFM field-length charts allow on this runway; V1 = VR stays valid when it does not exceed VR. Takeoff wt '+fmt(tow)+' lb'+(L.towOv?' (MANUAL)':' (plan)')+(vs.card?' · speed card GW '+fmt(vs.card):'')+'. V5 is flown with flaps 10°.</div>');
+   '<div class="foot">'+(vs.VR.low?'Below the speed table; lowest-weight speeds shown. ':'')+(vs.source||'QRH P-1')+' (VR/V2), rounded up.'+(!afmOn&&vs.afm&&vs.afm.VR.value!=null?' AFM reference (SB.6.2 p25): VR '+vs.afm.VR.value+' / V2 '+vs.afm.V2.value+'.':'')+' AFM V1 (min) is the lowest V1 the AFM field-length charts allow on this runway; V1 = VR stays valid when it does not exceed VR. Takeoff wt '+fmt(tow)+' lb'+(L.towOv?' (MANUAL)':' (plan)')+(vs.card?' · speed card GW '+fmt(vs.card):'')+'. V5 is flown with flaps 10°.</div>');
   h.push(head(3)+'<div class="kv">'+K('Best 2-eng climb',vs.climb2,'Flaps 0°','hl')+K('Maneuvering',vs.man0,'Flaps 0°','hl')+K('MCP (1 eng)',ps.mcp.error?ps.mcp:ps.mcp.value,'110 KIAS')+K('ICC',icc.error?icc:icc.value,icc.rpm+' PRPM')+'</div>'+crzBlk+'<div class="foot">Speeds at takeoff weight '+fmt(tow)+' lb'+(vs.card?' · speed card GW '+fmt(vs.card):'')+', rounded up. Climb speed: QRH P-1. Maneuvering: BTA V-speed cards.</div>'+pwFoot);
  }else{h.push(head(1)+noT);h.push(head(2)+noT);h.push(head(3)+noT)}
  h.push(head(4)+'<div class="legline">Landing at <b>'+esc(g.to)+'</b>'+(arr.ok?' · '+esc(arr.icao)+' · RWY '+esc(arr.lr):'')+'</div>'+
